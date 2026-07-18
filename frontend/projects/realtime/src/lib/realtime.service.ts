@@ -52,7 +52,7 @@ export class RealtimeService {
     this._topicSeq.clear();
 
     this.client = new Client({
-      brokerURL: 'ws://localhost:8080/ws',
+      brokerURL: `ws://${window.location.hostname}:8080/ws`,
       connectHeaders: {
         Authorization: `Bearer ${token}`,
         surface,

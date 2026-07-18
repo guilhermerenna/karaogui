@@ -14,8 +14,8 @@ Guiding rules:
   `performance_participation_count`, session `token_hash`, and trivia `answer` (except
   to judges) are never serialized to non-authorized clients.
 - **Everything is game-scoped** under `/api/games/{gameId}/...` where `{gameId}` is
-  the internal UUID (T00 §5). The only non-scoped endpoints are game creation and
-  join-by-code.
+  the internal UUID (T00 §5). The only non-scoped endpoints are game creation,
+  join-by-code, and TV registration.
 
 ---
 
@@ -80,6 +80,35 @@ state — T06); the backend keeps validation lean and leans on these codes.
 
 ## 4. Endpoints
 
+### 4.0 TV pairing
+
+#### `POST /api/tv/register` — register a TV session *(no auth)*
+Called by the TV frontend before any game exists. The backend generates a unique
+6-char join code and a display token, stores them in `pending_tv_session` (T01
+§2.15), and returns them to the TV.
+
+Response `200`:
+```json
+{
+  "joinCode": "A7K2M9",
+  "joinCodeDisplay": "A7K 2M9",
+  "displayToken": "opaque-display-token"
+}
+```
+
+The TV shows `joinCodeDisplay` on screen and connects to STOMP using the
+`displayToken`. Because no game exists yet, the STOMP session is in a **pending**
+state (no `gameId` attached); the backend auth layer recognizes pending display
+tokens and allows the connection but restricts subscriptions to the
+`/user/queue/tv-ready` destination only (T03 §1).
+
+When a host creates a game using this join code (§4.1), the backend pushes a
+`TV_READY` event to the TV via `/user/queue/tv-ready` and the TV navigates into the
+game lobby.
+
+Pending sessions expire after 30 minutes with no game attached; the TV should re-call
+this endpoint if the code expires.
+
 ### 4.1 Game lifecycle
 
 #### `POST /api/games` — create a game
@@ -89,9 +118,20 @@ host's session token.
 Request:
 ```json
 {
-  "host": { "displayName": "Sam", "pictureUploadId": "b1f...", "?": "picture optional" }
+  "host": { "displayName": "Sam", "pictureUploadId": "b1f...", "?": "picture optional" },
+  "tvCode": "A7K2M9"
 }
 ```
+`tvCode` is optional. If provided and matches a `pending_tv_session`:
+- The pending row's join code is adopted as the game's `join_code`.
+- The pending display token is moved to `game_display_token` and linked to the new game.
+- The pending row is deleted — all in the same transaction.
+- A `TV_READY` event is pushed via STOMP to the waiting TV (T03 §5.0).
+
+If `tvCode` is omitted, a fresh random join code and display token are generated as
+normal. If `tvCode` does not match any pending session, `404 TV_SESSION_NOT_FOUND` is
+returned.
+
 Response `201`:
 ```json
 {
@@ -106,9 +146,9 @@ Response `201`:
 ```
 Notes: `joinCode` is normalized; `joinCodeDisplay` is the `A1A 1A1` grouped form for
 the TV (T01 §2.1a). `sessionToken` authenticates the host player; `displayToken` is a
-separate **read-only** credential for the TV surface (T03 §1) — the host's phone
-presents it to the TV via a QR code / short link ("Open on TV"). The display token may
-only subscribe to public/TV-scoped topics and cannot invoke any command. Picture
+separate **read-only** credential for the TV surface (T03 §1) — returned for
+completeness (e.g. if the host wants to open the TV link manually), but when `tvCode`
+was provided the TV already has its token and this field is redundant. Picture
 handling: either omit, or reference a prior upload (§4.7).
 
 #### `POST /api/games/join` — join by code (public)

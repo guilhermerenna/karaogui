@@ -11,16 +11,23 @@ import type {
   RateRequest,
 } from 'contracts';
 
-const BASE = 'http://localhost:8080/api';
+const BASE = `http://${window.location.hostname}:8080/api`;
 
 @Injectable({ providedIn: 'root' })
 export class GameApiService {
   private http = inject(HttpClient);
 
-  createGame(displayName: string): Observable<CreateGameResponse> {
+  createGame(displayName: string, tvCode?: string): Observable<CreateGameResponse> {
     return this.http.post<CreateGameResponse>(`${BASE}/games`, {
       host: { displayName },
+      ...(tvCode ? { tvCode } : {}),
     });
+  }
+
+  registerTv(): Observable<{ joinCode: string; joinCodeDisplay: string; displayToken: string }> {
+    return this.http.post<{ joinCode: string; joinCodeDisplay: string; displayToken: string }>(
+      `${BASE}/tv/register`, {}
+    );
   }
 
   joinGame(joinCode: string, displayName: string): Observable<CreateGameResponse> {
@@ -40,6 +47,12 @@ export class GameApiService {
 
   getSnapshot(gameId: string, token: string): Observable<GameSnapshotDto> {
     return this.http.get<GameSnapshotDto>(`${BASE}/games/${gameId}`, {
+      headers: this.authHeaders(token),
+    });
+  }
+
+  getSnapshotByCode(joinCode: string, token: string): Observable<GameSnapshotDto> {
+    return this.http.get<GameSnapshotDto>(`${BASE}/games/by-code/${joinCode}`, {
       headers: this.authHeaders(token),
     });
   }

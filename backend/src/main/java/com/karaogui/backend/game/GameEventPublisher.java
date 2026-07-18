@@ -19,6 +19,18 @@ public class GameEventPublisher {
     }
 
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+    public void onTvReady(GameDomainEvent.TvReady event) {
+        messaging.convertAndSendToUser(
+                event.displayTokenHash(),
+                "/queue/tv-ready",
+                java.util.Map.of(
+                        "type", "TV_READY",
+                        "gameId", event.gameId().toString(),
+                        "joinCode", event.joinCode(),
+                        "joinCodeDisplay", com.karaogui.backend.game.JoinCodeGenerator.toDisplayFormat(event.joinCode())));
+    }
+
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     public void onPlayerJoined(GameDomainEvent.PlayerJoined event) {
         GameEvent gameEvent = new GameEvent(
                 event.seq(),

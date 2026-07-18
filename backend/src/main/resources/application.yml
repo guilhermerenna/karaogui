@@ -21,8 +21,8 @@ management:
 # All game-balance / tunable values live under this namespace (see docs/Technical/T08).
 karaogui:
   timers:
-    ready-confirm-window: 10m
-    replacement-open-after: 9m
+    ready-confirm-window: 30s
+    replacement-open-after: 20s
     break-duration: 15m
   scoreboard:
     max-displayed-player: 5

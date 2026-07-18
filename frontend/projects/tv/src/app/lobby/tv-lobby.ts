@@ -2,6 +2,7 @@ import { Component, OnDestroy, OnInit, signal, computed, ChangeDetectionStrategy
 import { ActivatedRoute } from '@angular/router';
 import { HttpErrorResponse } from '@angular/common/http';
 import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
+import { Client, IMessage } from '@stomp/stompjs';
 import { GameApiService } from 'api';
 import { RealtimeService } from 'realtime';
 
@@ -11,10 +12,20 @@ import { RealtimeService } from 'realtime';
   imports: [],
   template: `
     <div class="tv-page">
-      @if (!gameId) {
+      @if (pairingCode()) {
+        <!-- TV-first pairing: show the code, wait for host to create game -->
         <div class="tv-waiting">
           <div class="tv-title">KaraoGUI</div>
-          <div class="tv-subtitle">Waiting for host to share the TV link</div>
+          <div class="tv-subtitle" style="margin-bottom:2rem">Enter this code when creating the game</div>
+          <div class="tv-join-code" style="font-size:6rem;letter-spacing:.5em;color:#a5b4fc;font-weight:900">
+            {{ pairingCodeDisplay() }}
+          </div>
+          <div style="margin-top:2rem;font-size:1rem;color:#6b7280">Waiting for host…</div>
+        </div>
+      } @else if (!gameId && !joinCode) {
+        <div class="tv-waiting">
+          <div class="tv-title">KaraoGUI</div>
+          <div class="tv-subtitle">Loading…</div>
         </div>
       } @else if (error()) {
         <div class="tv-waiting">
@@ -194,7 +205,7 @@ import { RealtimeService } from 'realtime';
     }
     .tv-content {
       display: grid;
-      grid-template-columns: 280px 1fr 260px;
+      grid-template-columns: 320px 1fr 260px;
       gap: 3rem;
       align-items: flex-start;
       width: 100%;
@@ -218,12 +229,13 @@ import { RealtimeService } from 'realtime';
       margin-bottom: .5rem;
     }
     .tv-join-code {
-      font-size: 4.5rem;
+      font-size: 3rem;
       font-weight: 900;
-      letter-spacing: .4em;
+      letter-spacing: .2em;
       color: #a5b4fc;
       line-height: 1;
       margin-bottom: 1.5rem;
+      white-space: nowrap;
     }
     .tv-state-badge {
       display: inline-block;
@@ -319,8 +331,15 @@ import { RealtimeService } from 'realtime';
 })
 export class TvLobbyComponent implements OnInit, OnDestroy {
   gameId: string | null = null;
+  joinCode: string | null = null;
   displayToken: string | null = null;
   joinCodeDisplay = '';
+
+  pairingCode = signal<string | null>(null);
+  pairingCodeDisplay = signal('');
+
+  private pairingClient: Client | null = null;
+  private pairingPollHandle: ReturnType<typeof setInterval> | null = null;
   loaded = signal(false);
   error = signal('');
   secondsLeft = signal(0);
@@ -360,10 +379,14 @@ export class TvLobbyComponent implements OnInit, OnDestroy {
 
   ngOnInit() {
     this.route.queryParams.subscribe(params => {
-      this.gameId = params['gid'] ?? null;
+      this.joinCode = params['jc'] ?? null;
+      this.gameId = params['gid'] ?? null; // legacy fallback
       this.displayToken = params['dt'] ?? null;
-      if (this.gameId && this.displayToken) {
+      if ((this.joinCode || this.gameId) && this.displayToken) {
         this._loadAndConnect();
+      } else {
+        // TV-first: register to get a pairing code, then wait for TV_READY
+        this._startPairing();
       }
     });
 
@@ -390,14 +413,67 @@ export class TvLobbyComponent implements OnInit, OnDestroy {
     this.resnapSub?.unsubscribe();
     if (this.timerHandle) clearInterval(this.timerHandle);
     if (this.resultPageHandle) clearInterval(this.resultPageHandle);
+    if (this.pairingPollHandle) clearInterval(this.pairingPollHandle);
+    this.pairingClient?.deactivate();
     this.rt.disconnect();
   }
 
+  private _startPairing() {
+    this.api.registerTv().subscribe({
+      next: (reg) => {
+        this.displayToken = reg.displayToken;
+        this.pairingCode.set(reg.joinCode);
+        this.pairingCodeDisplay.set(reg.joinCodeDisplay);
+
+        const adopt = (joinCode: string, gameId: string) => {
+          if (this.pairingCode() === null) return; // already adopted
+          this.joinCode = joinCode;
+          this.gameId = gameId;
+          this.pairingCode.set(null);
+          if (this.pairingPollHandle) { clearInterval(this.pairingPollHandle); this.pairingPollHandle = null; }
+          this.pairingClient?.deactivate();
+          this.pairingClient = null;
+          this._loadAndConnect();
+        };
+
+        const client = new Client({
+          brokerURL: `ws://${window.location.hostname}:8080/ws`,
+          connectHeaders: { Authorization: `Bearer ${reg.displayToken}`, surface: 'TV' },
+          reconnectDelay: 3000,
+          onConnect: () => {
+            client.subscribe('/user/queue/tv-ready', (msg: IMessage) => {
+              const data = JSON.parse(msg.body);
+              adopt(data.joinCode, data.gameId);
+            });
+          },
+        });
+        client.activate();
+        this.pairingClient = client;
+
+        // Poll fallback: in case the STOMP push races with subscription setup
+        this.pairingPollHandle = setInterval(() => {
+          this.api.getSnapshotByCode(reg.joinCode, reg.displayToken).subscribe({
+            next: (snap) => adopt(snap.joinCode, snap.gameId),
+            error: () => { /* 404 = not yet created, keep waiting */ },
+          });
+        }, 2000);
+      },
+      error: () => {
+        this.error.set('Could not register TV. Please refresh.');
+      },
+    });
+  }
+
   private _loadAndConnect() {
-    if (!this.gameId || !this.displayToken) return;
+    if (!this.displayToken) return;
     this.error.set('');
-    this.api.getSnapshot(this.gameId, this.displayToken).subscribe({
+    const snapReq = this.joinCode
+      ? this.api.getSnapshotByCode(this.joinCode, this.displayToken)
+      : this.api.getSnapshot(this.gameId!, this.displayToken);
+
+    snapReq.subscribe({
       next: (snap) => {
+        this.gameId = snap.gameId;
         this.joinCodeDisplay = snap.joinCodeDisplay;
         this.rt.applySnapshot(snap);
         this.loaded.set(true);

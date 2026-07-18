@@ -16,6 +16,15 @@ import type { SessionInfo } from 'contracts';
           <label for="name">Your display name</label>
           <input id="name" type="text" [(ngModel)]="displayName" placeholder="e.g. DJ Soprano" maxlength="50" />
         </div>
+        <div class="field">
+          <label for="tvcode">TV code <span style="color:#9ca3af;font-weight:400">(optional)</span></label>
+          <input id="tvcode" type="text" [(ngModel)]="tvCode"
+            placeholder="Code shown on TV"
+            maxlength="7"
+            style="letter-spacing:.15em;text-transform:uppercase"
+            (input)="tvCode = tvCode.toUpperCase()" />
+          <p style="font-size:.8rem;color:#9ca3af;margin:.25rem 0 0">If your TV is already showing a code, enter it here.</p>
+        </div>
         <button class="btn btn-primary" [disabled]="!displayName.trim() || loading()" (click)="create()">
           {{ loading() ? 'Creating…' : 'Create game' }}
         </button>
@@ -28,6 +37,7 @@ import type { SessionInfo } from 'contracts';
 })
 export class CreateGameComponent {
   displayName = '';
+  tvCode = '';
   loading = signal(false);
   error = signal('');
 
@@ -37,12 +47,13 @@ export class CreateGameComponent {
     if (!this.displayName.trim()) return;
     this.loading.set(true);
     this.error.set('');
-    this.api.createGame(this.displayName.trim()).subscribe({
+    const code = this.tvCode.replace(/\s/g, '').trim() || undefined;
+    this.api.createGame(this.displayName.trim(), code).subscribe({
       next: (res) => {
         const session: SessionInfo = {
           gameId: res.gameId,
           token: res.sessionToken,
-          displayToken: res.displayToken,
+          displayToken: res.displayToken ?? '',
           isHost: true,
           playerId: res.you.playerId,
           displayName: res.you.displayName,
@@ -50,9 +61,13 @@ export class CreateGameComponent {
         sessionStorage.setItem('session', JSON.stringify(session));
         this.router.navigate(['/lobby']);
       },
-      error: () => {
+      error: (err) => {
         this.loading.set(false);
-        this.error.set('Failed to create game. Please try again.');
+        if (err.status === 404) {
+          this.error.set('TV code not found. Check the code on the TV screen.');
+        } else {
+          this.error.set('Failed to create game. Please try again.');
+        }
       },
     });
   }

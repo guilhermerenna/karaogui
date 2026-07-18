@@ -18,6 +18,7 @@ import com.karaogui.backend.player.PlayerRepository;
 import com.karaogui.backend.player.PlayerSession;
 import com.karaogui.backend.player.PlayerSessionRepository;
 import jakarta.persistence.EntityNotFoundException;
+import com.karaogui.backend.tv.PendingTvSessionRepository;
 import com.karaogui.backend.performance.PerformanceService;
 import com.karaogui.backend.performance.PerformanceRepository;
 import com.karaogui.backend.performance.PerformanceState;
@@ -40,6 +41,7 @@ public class GameService {
     private final PlayerRepository playerRepo;
     private final PlayerSessionRepository sessionRepo;
     private final GameDisplayTokenRepository displayTokenRepo;
+    private final PendingTvSessionRepository pendingTvRepo;
     private final JoinCodeGenerator joinCodeGenerator;
     private final KaraoguiProperties props;
     private final ApplicationEventPublisher eventPublisher;
@@ -48,6 +50,7 @@ public class GameService {
 
     public GameService(GameRepository gameRepo, PlayerRepository playerRepo,
             PlayerSessionRepository sessionRepo, GameDisplayTokenRepository displayTokenRepo,
+            PendingTvSessionRepository pendingTvRepo,
             JoinCodeGenerator joinCodeGenerator, KaraoguiProperties props,
             ApplicationEventPublisher eventPublisher, PerformanceService performanceService,
             PerformanceRepository performanceRepo) {
@@ -55,6 +58,7 @@ public class GameService {
         this.playerRepo = playerRepo;
         this.sessionRepo = sessionRepo;
         this.displayTokenRepo = displayTokenRepo;
+        this.pendingTvRepo = pendingTvRepo;
         this.joinCodeGenerator = joinCodeGenerator;
         this.props = props;
         this.eventPublisher = eventPublisher;
@@ -66,7 +70,27 @@ public class GameService {
     public CreateGameResponse createGame(CreateGameRequest req) {
         Instant now = Instant.now();
         UUID gameId = UUID.randomUUID();
-        String joinCode = generateUniqueJoinCode();
+
+        // Resolve join code and display token — either from a pending TV session or fresh
+        String joinCode;
+        String rawDisplayToken;
+        String displayTokenHash;
+
+        if (req.tvCode() != null && !req.tvCode().isBlank()) {
+            String normalized = JoinCodeGenerator.normalize(req.tvCode());
+            var pending = pendingTvRepo.findById(normalized)
+                    .orElseThrow(() -> new jakarta.persistence.EntityNotFoundException("TV_SESSION_NOT_FOUND"));
+            joinCode = normalized;
+            displayTokenHash = pending.getDisplayTokenHash();
+            // Reconstruct the raw token is not possible — we store the hash only.
+            // Return a sentinel so the host knows the TV already has its token.
+            rawDisplayToken = null;
+            pendingTvRepo.delete(pending);
+        } else {
+            joinCode = generateUniqueJoinCode();
+            rawDisplayToken = UUID.randomUUID().toString();
+            displayTokenHash = TokenAuthFilter.sha256Hex(rawDisplayToken);
+        }
 
         Game game = new Game(gameId, joinCode, GameState.CREATED, null, now);
         gameRepo.save(game);
@@ -82,9 +106,11 @@ public class GameService {
         String tokenHash = TokenAuthFilter.sha256Hex(rawToken);
         sessionRepo.save(new PlayerSession(UUID.randomUUID(), playerId, gameId, tokenHash, now));
 
-        String rawDisplayToken = UUID.randomUUID().toString();
-        String displayTokenHash = TokenAuthFilter.sha256Hex(rawDisplayToken);
         displayTokenRepo.save(new GameDisplayToken(UUID.randomUUID(), gameId, displayTokenHash, now));
+
+        if (req.tvCode() != null && !req.tvCode().isBlank()) {
+            eventPublisher.publishEvent(new GameDomainEvent.TvReady(this, displayTokenHash, gameId, joinCode));
+        }
 
         return new CreateGameResponse(
                 gameId,
@@ -166,6 +192,15 @@ public class GameService {
     }
 
     @Transactional(readOnly = true)
+    public GameSnapshotDto getSnapshotByCode(String joinCode, PlayerIdentity identity) {
+        String normalized = JoinCodeGenerator.normalize(joinCode);
+        Game game = gameRepo.findByJoinCode(normalized)
+                .orElseThrow(() -> new EntityNotFoundException("Game not found for code: " + joinCode));
+        ScopeGuard.requireScope(identity, game.getId());
+        return buildSnapshot(game);
+    }
+
+
     public List<PlayerDto> listPlayers(UUID gameId, PlayerIdentity identity) {
         ScopeGuard.requireScope(identity, gameId);
         gameRepo.findById(gameId)

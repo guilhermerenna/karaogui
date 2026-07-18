@@ -40,15 +40,24 @@ const CRITERIA = ['PITCH', 'ENERGY', 'STAGE_PRESENCE'] as const;
                 <input type="url" [(ngModel)]="queueUrl" placeholder="https://youtu.be/..." class="input" style="margin-bottom:.75rem" />
 
                 <label style="display:block;font-size:.85rem;margin-bottom:.25rem">Select performers</label>
+                <div style="margin-bottom:.5rem">
+                  <label style="display:flex;align-items:center;gap:.75rem;font-size:.85rem">
+                    <span style="white-space:nowrap">Performers: <strong>{{ slotCount() }}</strong></span>
+                    <input type="range" min="1" [max]="rt.players$().length"
+                      [value]="slotCount()" (input)="setSlotCount(+$any($event.target).value)"
+                      style="flex:1" />
+                    <span style="color:#9ca3af;font-size:.75rem">max {{ rt.players$().length }}</span>
+                  </label>
+                </div>
                 <div style="margin-bottom:.75rem">
                   @for (p of rt.players$(); track p.playerId) {
-                    @if (p.playerId !== session.playerId) {
-                      <label style="display:flex;align-items:center;gap:.5rem;padding:.3rem 0">
-                        <input type="checkbox" [checked]="selectedPerformers().has(p.playerId)"
-                          (change)="togglePerformer(p.playerId)" />
-                        {{ p.displayName }}
-                      </label>
-                    }
+                    <label style="display:flex;align-items:center;gap:.5rem;padding:.3rem 0"
+                      [style.opacity]="!selectedPerformers().has(p.playerId) && selectedPerformers().size >= slotCount() ? '0.4' : '1'">
+                      <input type="checkbox" [checked]="selectedPerformers().has(p.playerId)"
+                        [disabled]="!selectedPerformers().has(p.playerId) && selectedPerformers().size >= slotCount()"
+                        (change)="togglePerformer(p.playerId)" />
+                      {{ p.displayName }}{{ p.playerId === session.playerId ? ' (you)' : '' }}
+                    </label>
                   }
                 </div>
 
@@ -202,10 +211,10 @@ const CRITERIA = ['PITCH', 'ENERGY', 'STAGE_PRESENCE'] as const;
               <div style="margin-top:.75rem">
 
                 <!-- Post form -->
-                <div style="display:flex;gap:.5rem;margin-bottom:1rem">
-                  <textarea [(ngModel)]="commentBody" maxlength="280" rows="2"
+                <div style="display:flex;flex-direction:column;gap:.5rem;margin-bottom:1rem">
+                  <textarea [(ngModel)]="commentBody" maxlength="280" rows="3"
                     placeholder="Say something…"
-                    style="flex:1;resize:none;border:1px solid #d1d5db;border-radius:6px;padding:.5rem;font-size:.875rem"></textarea>
+                    style="width:100%;resize:none;border:1px solid #d1d5db;border-radius:6px;padding:.5rem;font-size:.875rem;box-sizing:border-box"></textarea>
                   <button class="btn btn-primary" style="align-self:flex-end"
                     [disabled]="postingComment() || !commentBody.trim()" (click)="postComment()">
                     Send
@@ -248,6 +257,7 @@ export class PerformanceComponent implements OnInit, OnDestroy {
 
   queueUrl = '';
   selectedPerformers = signal<Set<string>>(new Set());
+  slotCount = signal(2);
   queuing = signal(false);
   queueError = signal('');
 
@@ -350,6 +360,15 @@ export class PerformanceComponent implements OnInit, OnDestroy {
     if (this.timerHandle) clearInterval(this.timerHandle);
   }
 
+  setSlotCount(n: number) {
+    this.slotCount.set(n);
+    // drop checked players beyond the new cap
+    if (this.selectedPerformers().size > n) {
+      const kept = [...this.selectedPerformers()].slice(0, n);
+      this.selectedPerformers.set(new Set(kept));
+    }
+  }
+
   togglePerformer(id: string) {
     this.selectedPerformers.update(s => {
       const next = new Set(s);
@@ -366,11 +385,13 @@ export class PerformanceComponent implements OnInit, OnDestroy {
       type: 'KARAOKE',
       youtubeUrl: this.queueUrl,
       performerPlayerIds: [...this.selectedPerformers()],
+      slotCount: this.slotCount(),
     }).subscribe({
       next: () => {
         this.queuing.set(false);
         this.queueUrl = '';
         this.selectedPerformers.set(new Set());
+        this.slotCount.set(2);
       },
       error: (err: HttpErrorResponse) => {
         this.queuing.set(false);

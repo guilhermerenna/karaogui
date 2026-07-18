@@ -69,6 +69,7 @@ import type { SessionInfo } from 'contracts';
 export class LobbyComponent implements OnInit, OnDestroy {
   session: SessionInfo | null = null;
   joinCodeDisplay = '';
+  joinCode = '';
   starting = signal(false);
   error = signal('');
   copied = signal(false);
@@ -91,6 +92,7 @@ export class LobbyComponent implements OnInit, OnDestroy {
     this.api.getSnapshot(this.session.gameId, this.session.token).subscribe({
       next: (snap) => {
         this.joinCodeDisplay = snap.joinCodeDisplay;
+        this.joinCode = snap.joinCode;
         this.rt.applySnapshot(snap);
         this.rt.connect(this.session!.gameId, this.session!.token, 'PHONE');
       },
@@ -132,8 +134,8 @@ export class LobbyComponent implements OnInit, OnDestroy {
   }
 
   tvLink(): string {
-    if (!this.session) return '';
-    return `http://localhost:4200/?gid=${this.session.gameId}&dt=${this.session.displayToken}`;
+    if (!this.session || !this.joinCode) return '';
+    return `http://${window.location.hostname}:4200/?jc=${this.joinCode}&dt=${this.session.displayToken}`;
   }
 
   copyTvLink() {

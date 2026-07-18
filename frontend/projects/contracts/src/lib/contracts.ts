@@ -5,7 +5,7 @@ export interface CreateGameResponse {
   state: string;
   you: { playerId: string; displayName: string; isHost: boolean };
   sessionToken: string;
-  displayToken: string;
+  displayToken: string | null;
 }
 
 export interface PlayerDto {
@@ -88,6 +88,7 @@ export interface QueuePerformanceRequest {
   type: string;
   youtubeUrl: string;
   performerPlayerIds: string[];
+  slotCount: number;
 }
 
 export interface EvaluateRequest {
@@ -166,7 +167,7 @@ export interface CommentLikedData {
 export interface SessionInfo {
   gameId: string;
   token: string;
-  displayToken: string;
+  displayToken: string | null;
   isHost: boolean;
   playerId: string;
   displayName: string;

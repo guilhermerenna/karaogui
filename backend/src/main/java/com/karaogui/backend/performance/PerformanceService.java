@@ -103,7 +103,8 @@ public class PerformanceService {
         performanceRepo.save(performance);
 
         List<UUID> requestedIds = req.performerPlayerIds() != null ? req.performerPlayerIds() : List.of();
-        List<UUID> performerIds = resolvePerformerSlots(requestedIds, allPlayers, identity.playerId());
+        int maxSlots = req.slotCount() != null ? Math.max(1, req.slotCount()) : 2;
+        List<UUID> performerIds = resolvePerformerSlots(requestedIds, allPlayers, identity.playerId(), maxSlots);
 
         for (int i = 0; i < performerIds.size(); i++) {
             UUID pid = performerIds.get(i);
@@ -112,12 +113,13 @@ public class PerformanceService {
             slotRepo.save(new PerformerSlot(UUID.randomUUID(), gameId, performance.getId(), i, origin, pid));
         }
 
-        for (Player p : allPlayers) {
-            if (!performerIds.contains(p.getId())) {
+        List<Player> judgePool = allPlayers.stream()
+                .filter(p -> !performerIds.contains(p.getId()))
+                .collect(Collectors.toCollection(ArrayList::new));
+        Collections.shuffle(judgePool);
+        judgePool.stream().limit(2).forEach(p ->
                 judgeRepo.save(new JudgeAssignment(UUID.randomUUID(), gameId,
-                        performance.getId(), p.getId(), JudgeSource.ASSIGNED));
-            }
-        }
+                        performance.getId(), p.getId(), JudgeSource.ASSIGNED)));
 
         boolean hasActive = performanceRepo
                 .findTopByGameIdAndStateInOrderByQueuePositionAsc(gameId,
@@ -466,15 +468,15 @@ public class PerformanceService {
                         .orElse(5.0));
     }
 
-    private List<UUID> resolvePerformerSlots(List<UUID> requested, List<Player> allPlayers, UUID authorId) {
+    private List<UUID> resolvePerformerSlots(List<UUID> requested, List<Player> allPlayers, UUID authorId, int maxSlots) {
         List<UUID> result = new ArrayList<>(requested);
         List<UUID> eligible = allPlayers.stream()
                 .map(Player::getId)
                 .filter(id -> !result.contains(id))
-                .filter(id -> !id.equals(authorId))
+                .filter(id -> !id.equals(authorId)) // author only joins if explicitly requested
                 .collect(Collectors.toCollection(ArrayList::new));
         Collections.shuffle(eligible);
-        int needed = Math.min(4, allPlayers.size() - 1) - result.size(); // -1 to exclude author
+        int needed = Math.min(maxSlots, allPlayers.size()) - result.size();
         for (int i = 0; i < needed && i < eligible.size(); i++) {
             result.add(eligible.get(i));
         }

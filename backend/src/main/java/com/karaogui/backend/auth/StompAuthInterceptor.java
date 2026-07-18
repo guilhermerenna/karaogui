@@ -2,6 +2,7 @@ package com.karaogui.backend.auth;
 
 import com.karaogui.backend.player.GameDisplayTokenRepository;
 import com.karaogui.backend.player.PlayerSessionRepository;
+import com.karaogui.backend.tv.PendingTvSessionRepository;
 import java.security.Principal;
 import java.util.Map;
 import java.util.UUID;
@@ -25,13 +26,16 @@ public class StompAuthInterceptor implements ChannelInterceptor {
 
     private final PlayerSessionRepository sessionRepo;
     private final GameDisplayTokenRepository displayTokenRepo;
+    private final PendingTvSessionRepository pendingTvRepo;
     private final SimpUserRegistry userRegistry;
     private final Map<String, StompPrincipal> sessionPrincipals = new ConcurrentHashMap<>();
 
     public StompAuthInterceptor(PlayerSessionRepository sessionRepo,
-            GameDisplayTokenRepository displayTokenRepo, @Lazy SimpUserRegistry userRegistry) {
+            GameDisplayTokenRepository displayTokenRepo, PendingTvSessionRepository pendingTvRepo,
+            @Lazy SimpUserRegistry userRegistry) {
         this.sessionRepo = sessionRepo;
         this.displayTokenRepo = displayTokenRepo;
+        this.pendingTvRepo = pendingTvRepo;
         this.userRegistry = userRegistry;
     }
 
@@ -51,7 +55,7 @@ public class StompAuthInterceptor implements ChannelInterceptor {
             if (principal == null) throw new SecurityException("Invalid token");
 
             String surfaceHeader = accessor.getFirstNativeHeader("surface");
-            if (surfaceHeader != null && principal.displayOnly()) {
+            if (surfaceHeader != null && principal.displayOnly() && principal.gameId() != null) {
                 principal = new StompPrincipal(null, principal.gameId(), "TV", true);
             }
 
@@ -73,6 +77,14 @@ public class StompAuthInterceptor implements ChannelInterceptor {
 
             String destination = accessor.getDestination();
             if (destination == null) return message;
+
+            // Pending TV: only /user/queue/tv-ready allowed
+            if (principal.gameId() == null) {
+                if (!destination.equals("/user/queue/tv-ready")) {
+                    throw new SecurityException("Pending TV session may only subscribe to /user/queue/tv-ready");
+                }
+                return message;
+            }
 
             UUID destinationGameId = extractGameId(destination);
             if (destinationGameId != null && !destinationGameId.equals(principal.gameId())) {
@@ -125,6 +137,11 @@ public class StompAuthInterceptor implements ChannelInterceptor {
         var displayToken = displayTokenRepo.findByTokenHash(hash);
         if (displayToken.isPresent()) {
             return new StompPrincipal(null, displayToken.get().getGameId(), "TV", true);
+        }
+        // Pending TV session — no game yet; use hash as principal name for user-destination routing
+        var pending = pendingTvRepo.findByDisplayTokenHash(hash);
+        if (pending.isPresent()) {
+            return new StompPrincipal(null, null, "TV", true, hash);
         }
         return null;
     }

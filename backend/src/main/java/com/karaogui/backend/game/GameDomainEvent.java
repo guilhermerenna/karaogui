@@ -6,7 +6,7 @@ import org.springframework.context.ApplicationEvent;
 
 public abstract sealed class GameDomainEvent extends ApplicationEvent
         permits GameDomainEvent.PlayerJoined, GameDomainEvent.GameStarted,
-                GameDomainEvent.GameEnded,
+                GameDomainEvent.GameEnded, GameDomainEvent.TvReady,
                 GameDomainEvent.PerformanceAnnounced, GameDomainEvent.SlotStateChanged,
                 GameDomainEvent.PerformanceStarted, GameDomainEvent.PerformanceLocked,
                 GameDomainEvent.PerformanceSkipped, GameDomainEvent.RankingUpdated,
@@ -191,6 +191,23 @@ public abstract sealed class GameDomainEvent extends ApplicationEvent
         public long seq() { return seq; }
         public List<com.karaogui.backend.game.dto.RankingPageDto.Entry> entries() { return entries; }
         public int totalPlayers() { return totalPlayers; }
+    }
+
+    public static final class TvReady extends GameDomainEvent {
+        private final String displayTokenHash;
+        private final UUID gameId;
+        private final String joinCode;
+
+        public TvReady(Object source, String displayTokenHash, UUID gameId, String joinCode) {
+            super(source);
+            this.displayTokenHash = displayTokenHash;
+            this.gameId = gameId;
+            this.joinCode = joinCode;
+        }
+
+        public String displayTokenHash() { return displayTokenHash; }
+        public UUID gameId() { return gameId; }
+        public String joinCode() { return joinCode; }
     }
 
     public static final class GameEnded extends GameDomainEvent {

@@ -25,15 +25,15 @@ interpolation (e.g. animating a countdown between server ticks).
   `CONNECT` header (e.g. `Authorization: Bearer <token>`). The backend resolves it to
   `player_id` + `game_id` and attaches that to the WebSocket session. Anonymous
   connects are refused.
-- **The TV surface** connects with a **dedicated read-only "display token"** issued at
-  create time (returned alongside the host's `sessionToken` from `POST /api/games`,
-  T02 §4.1). The token marks the WebSocket session `surface=TV`, read-only: it may
-  subscribe to public/TV-scoped topics only and **cannot invoke any command
-  destination** (§8). This preserves the display-only principle (T00 §1) even if the TV
-  is in a public room — a leaked display token can watch but never drive the game.
-  **[DECISION]** the display token reaches the TV via a **host-presented QR code / short
-  link** on the host's phone ("Open on TV"); the TV browser opens it and connects. The
-  exact QR/link UX is a frontend concern (T06).
+- **The TV surface** connects with a **dedicated read-only "display token"** issued
+  either at game-create time (legacy flow) or at `POST /api/tv/register` (TV-first
+  pairing flow, T02 §4.0). The token marks the WebSocket session `surface=TV`,
+  read-only. In the **TV-first flow** the token is issued before any game exists; the
+  STOMP session is in a **pending** state with no `gameId` and may only subscribe to
+  `/user/queue/tv-ready`. Once the host creates a game with the matching TV code, the
+  backend pushes `TV_READY` (§5.0) and the TV transitions to the normal connected
+  state, subscribing to all game topics. In both flows the display token may subscribe
+  to public/TV-scoped topics only and **cannot invoke any command destination** (§8).
 
 ## 2. Surfaces and subscription context
 
@@ -66,6 +66,7 @@ All topics are game-scoped (T00 §5). Destinations:
 
 | Destination | Purpose | Surfaces |
 |-------------|---------|----------|
+| `/user/queue/tv-ready` | TV pairing: pushed once when a game adopts the TV's join code | pending TV only |
 | `/topic/games/{gameId}/state` | game & performance state transitions, timers | TV + PHONE |
 | `/topic/games/{gameId}/ranking` | ranking/score updates | TV + PHONE |
 | `/topic/games/{gameId}/performers` | performer slot changes (confirm, replace, strikethrough) | TV + PHONE |
@@ -88,6 +89,19 @@ Every event envelope:
 ```json
 { "seq": 128, "type": "PERFORMANCE_CONFIRMING", "at": "2026-07-17T20:10:00Z", "data": { } }
 ```
+
+### 5.0 TV pairing — `/user/queue/tv-ready`
+- `TV_READY` — `{ gameId, joinCode, joinCodeDisplay }`. Pushed to a pending TV
+  STOMP session the moment a host creates (or joins) a game using the TV's join code.
+  The TV frontend receives this, stores the `gameId`, then:
+  1. Fetches the game snapshot via `GET /api/games/by-code/{joinCode}` using its
+     display token.
+  2. Subscribes to all normal game topics.
+  3. Renders the lobby.
+
+  This destination is **only reachable while the display token has no gameId** (pending
+  state). Once the game is linked, the TV transitions to the normal subscription model
+  and this destination is no longer used.
 
 ### 5.1 State & timers — `/state`
 - `GAME_STARTED` — game went `ACTIVE`.
