@@ -176,10 +176,10 @@ const CRITERIA = ['PITCH', 'ENERGY', 'STAGE_PRESENCE'] as const;
               <div style="margin-bottom:1.5rem">
                 <h3 style="margin:0 0 1rem">Results</h3>
                 <ul style="list-style:none;padding:0;margin:0">
-                  @for (slot of perf.slots; track slot.slotId) {
+                  @for (s of rt.lockedScores$(); track s.playerId) {
                     <li style="display:flex;justify-content:space-between;align-items:center;padding:.6rem 0;border-bottom:1px solid #f0f0f0">
-                      <span>{{ slot.currentPlayerName }}</span>
-                      <span style="font-weight:600;color:#6366f1">{{ slot.state }}</span>
+                      <span>{{ s.displayName }}</span>
+                      <span style="font-weight:600;color:#6366f1">{{ s.points }} pts</span>
                     </li>
                   }
                 </ul>

@@ -34,6 +34,7 @@ export class RealtimeService {
   private _gameEnded = signal<boolean>(false);
   private _queueNonEmpty = signal<boolean>(false);
   private _comments = signal<CommentDto[]>([]);
+  private _lockedScores = signal<{ playerId: string; displayName: string; points: number }[]>([]);
   private _topicSeq = new Map<string, number>();
 
   readonly players$: Signal<PlayerDto[]> = this._players.asReadonly();
@@ -44,6 +45,7 @@ export class RealtimeService {
   readonly gameEnded$: Signal<boolean> = this._gameEnded.asReadonly();
   readonly queueNonEmpty$: Signal<boolean> = this._queueNonEmpty.asReadonly();
   readonly comments$: Signal<CommentDto[]> = this._comments.asReadonly();
+  readonly lockedScores$: Signal<{ playerId: string; displayName: string; points: number }[]> = this._lockedScores.asReadonly();
 
   readonly resnap$ = new Subject<void>();
 
@@ -153,6 +155,7 @@ export class RealtimeService {
             judgePlayerIds: d.judgePlayerIds,
           });
           this._judgeIds.set(d.judgePlayerIds);
+          this._lockedScores.set([]);
           break;
         }
         case 'SLOT_STATE_CHANGED': {
@@ -175,13 +178,16 @@ export class RealtimeService {
           break;
         }
         case 'PERFORMANCE_LOCKED': {
+          const d = event.data as PerformanceLockedData;
           this._currentPerformance.update(perf => perf ? { ...perf, state: 'LOCKED' } : perf);
+          this._lockedScores.set(d.scores ?? []);
           this._queueNonEmpty.set(false);
           this._judgeIds.set([]);
           break;
         }
         case 'PERFORMANCE_SKIPPED': {
           this._currentPerformance.set(null);
+          this._lockedScores.set([]);
           this._judgeIds.set([]);
           this._queueNonEmpty.set(false);
           break;

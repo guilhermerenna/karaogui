@@ -1,4 +1,4 @@
-import { Component, OnDestroy, OnInit, signal, computed, ChangeDetectionStrategy } from '@angular/core';
+import { Component, OnDestroy, OnInit, signal, computed, effect, ChangeDetectionStrategy } from '@angular/core';
 import { ActivatedRoute } from '@angular/router';
 import { HttpErrorResponse } from '@angular/common/http';
 import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
@@ -133,10 +133,10 @@ import { RealtimeService } from 'realtime';
                 <div class="tv-perf-banner locked">
                   <div class="tv-perf-title" style="margin-bottom:1.5rem">Results</div>
                   <div style="display:flex;flex-direction:column;gap:1rem;width:100%;max-width:500px">
-                    @for (slot of perf.slots; track slot.slotId) {
+                    @for (s of rt.lockedScores$(); track s.playerId) {
                       <div class="tv-score-row">
-                        <span class="tv-score-name">{{ slot.currentPlayerName }}</span>
-                        <span class="tv-score-pts">{{ slot.state }}</span>
+                        <span class="tv-score-name">{{ s.displayName }}</span>
+                        <span class="tv-score-pts">{{ s.points }} pts</span>
                       </div>
                     }
                   </div>
@@ -404,7 +404,15 @@ export class TvLobbyComponent implements OnInit, OnDestroy {
     private route: ActivatedRoute,
     private api: GameApiService,
     private sanitizer: DomSanitizer,
-  ) {}
+  ) {
+    effect(() => {
+      if (this.rt.gameEnded$()) {
+        // Stop all polling and reconnect attempts once game is over
+        if (this.pairingPollHandle) { clearInterval(this.pairingPollHandle); this.pairingPollHandle = null; }
+        this.rt.disconnect();
+      }
+    });
+  }
 
   ngOnInit() {
     this.route.queryParams.subscribe(params => {
@@ -468,7 +476,7 @@ export class TvLobbyComponent implements OnInit, OnDestroy {
         const client = new Client({
           brokerURL: `ws://${window.location.hostname}:8080/ws`,
           connectHeaders: { Authorization: `Bearer ${reg.displayToken}`, surface: 'TV' },
-          reconnectDelay: 3000,
+          reconnectDelay: 0,
           onConnect: () => {
             client.subscribe('/user/queue/tv-ready', (msg: IMessage) => {
               const data = JSON.parse(msg.body);
