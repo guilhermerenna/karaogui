@@ -161,7 +161,7 @@ import { RealtimeService } from 'realtime';
             }
           </div>
 
-          <!-- RIGHT PANEL: live ranking -->
+          <!-- RIGHT PANEL: live ranking + comments -->
           <div class="tv-right">
             <div class="tv-label">Ranking</div>
             @if (rt.ranking$().length) {
@@ -176,6 +176,21 @@ import { RealtimeService } from 'realtime';
               </ol>
             } @else {
               <div style="color:#4b5563;font-size:1rem">No scores yet</div>
+            }
+
+            @if (rt.comments$().length) {
+              <div class="tv-label" style="margin-top:1.5rem">Chat</div>
+              <div class="tv-comments">
+                @for (c of rt.comments$().slice(0, 8); track c.commentId) {
+                  <div class="tv-comment">
+                    <span class="tv-comment-author">{{ c.authorName }}</span>
+                    <span class="tv-comment-body">{{ c.body }}</span>
+                    @if (c.likeCount > 0) {
+                      <span class="tv-comment-likes">❤ {{ c.likeCount }}</span>
+                    }
+                  </div>
+                }
+              </div>
             }
           </div>
         </div>
@@ -327,6 +342,20 @@ import { RealtimeService } from 'realtime';
     }
     .tv-rank-name { flex: 1; font-weight: 500; }
     .tv-rank-score { color: #6b7280; font-size: .9rem; }
+
+    .tv-comments { display: flex; flex-direction: column; gap: .5rem; }
+    .tv-comment {
+      background: #1e293b;
+      border-radius: 8px;
+      padding: .5rem .75rem;
+      font-size: .85rem;
+      display: flex;
+      flex-direction: column;
+      gap: .15rem;
+    }
+    .tv-comment-author { font-weight: 700; color: #a5b4fc; font-size: .75rem; }
+    .tv-comment-body { color: #e2e8f0; line-height: 1.4; }
+    .tv-comment-likes { color: #f87171; font-size: .75rem; }
   `],
 })
 export class TvLobbyComponent implements OnInit, OnDestroy {

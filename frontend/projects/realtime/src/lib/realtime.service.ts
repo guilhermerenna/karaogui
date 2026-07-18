@@ -72,6 +72,7 @@ export class RealtimeService {
     this._ranking.set(snap.ranking?.entries ?? []);
     const perf = snap.currentPerformance;
     this._currentPerformance.set(perf && perf.performanceId ? perf : null);
+    this._judgeIds.set(perf?.judgePlayerIds ?? []);
     this._gameEnded.set(snap.state === 'OVER');
     this._queueNonEmpty.set(snap.queueNonEmpty ?? false);
   }
@@ -149,10 +150,9 @@ export class RealtimeService {
             confirmDeadlineAt: d.confirmDeadlineAt,
             replacementOpensAt: null,
             slots: d.slots,
+            judgePlayerIds: d.judgePlayerIds,
           });
-          const players = this._players();
-          const slotIds = new Set(d.slots.map(s => s.currentPlayerId));
-          this._judgeIds.set(players.filter(p => !slotIds.has(p.playerId)).map(p => p.playerId));
+          this._judgeIds.set(d.judgePlayerIds);
           break;
         }
         case 'SLOT_STATE_CHANGED': {
@@ -177,6 +177,7 @@ export class RealtimeService {
         case 'PERFORMANCE_LOCKED': {
           this._currentPerformance.update(perf => perf ? { ...perf, state: 'LOCKED' } : perf);
           this._queueNonEmpty.set(false);
+          this._judgeIds.set([]);
           break;
         }
         case 'PERFORMANCE_SKIPPED': {
@@ -215,12 +216,9 @@ export class RealtimeService {
 
   private _checkSeq(topic: string, seq: number): boolean {
     const last = this._topicSeq.get(topic) ?? -1;
-    if (last === -1 || seq === last + 1) {
+    if (seq > last) {
       this._topicSeq.set(topic, seq);
       return true;
-    }
-    if (seq > last + 1) {
-      this.resnap$.next();
     }
     return false;
   }

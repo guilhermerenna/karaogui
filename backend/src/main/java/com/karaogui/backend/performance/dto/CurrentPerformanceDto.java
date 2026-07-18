@@ -11,4 +11,5 @@ public record CurrentPerformanceDto(
         String youtubeUrl,
         Instant confirmDeadlineAt,
         Instant replacementOpensAt,
-        List<SlotDto> slots) {}
+        List<SlotDto> slots,
+        List<UUID> judgePlayerIds) {}

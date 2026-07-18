@@ -63,12 +63,13 @@ public abstract sealed class GameDomainEvent extends ApplicationEvent
         private final String type;
         private final List<GameEvent.SlotInfo> slots;
         private final List<String> judgeNames;
+        private final List<UUID> judgePlayerIds;
         private final String youtubeUrl;
         private final java.time.Instant confirmDeadlineAt;
 
         public PerformanceAnnounced(Object source, UUID gameId, long seq, Long performanceId,
                 String type, List<GameEvent.SlotInfo> slots, List<String> judgeNames,
-                String youtubeUrl, java.time.Instant confirmDeadlineAt) {
+                List<UUID> judgePlayerIds, String youtubeUrl, java.time.Instant confirmDeadlineAt) {
             super(source);
             this.gameId = gameId;
             this.seq = seq;
@@ -76,6 +77,7 @@ public abstract sealed class GameDomainEvent extends ApplicationEvent
             this.type = type;
             this.slots = slots;
             this.judgeNames = judgeNames;
+            this.judgePlayerIds = judgePlayerIds;
             this.youtubeUrl = youtubeUrl;
             this.confirmDeadlineAt = confirmDeadlineAt;
         }
@@ -86,6 +88,7 @@ public abstract sealed class GameDomainEvent extends ApplicationEvent
         public String type() { return type; }
         public List<GameEvent.SlotInfo> slots() { return slots; }
         public List<String> judgeNames() { return judgeNames; }
+        public List<UUID> judgePlayerIds() { return judgePlayerIds; }
         public String youtubeUrl() { return youtubeUrl; }
         public java.time.Instant confirmDeadlineAt() { return confirmDeadlineAt; }
     }

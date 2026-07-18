@@ -47,6 +47,7 @@ export interface CurrentPerformanceDto {
   confirmDeadlineAt: string | null;
   replacementOpensAt: string | null;
   slots: PerformanceSlotDto[];
+  judgePlayerIds: string[];
 }
 
 export interface PerformanceAnnouncedData {
@@ -54,6 +55,7 @@ export interface PerformanceAnnouncedData {
   type: string;
   slots: PerformanceSlotDto[];
   judgeNames: string[];
+  judgePlayerIds: string[];
   youtubeUrl: string | null;
   confirmDeadlineAt: string;
 }

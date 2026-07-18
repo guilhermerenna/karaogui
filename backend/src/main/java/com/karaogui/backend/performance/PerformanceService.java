@@ -326,13 +326,16 @@ public class PerformanceService {
         List<String> judgeNames = judges.stream()
                 .map(j -> playerNames.getOrDefault(j.getJudgePlayerId(), "?"))
                 .toList();
+        List<UUID> judgePlayerIds = judges.stream()
+                .map(JudgeAssignment::getJudgePlayerId)
+                .toList();
 
         long seq = game.incrementAndGetSeq();
         gameRepo.save(game);
 
         eventPublisher.publishEvent(new GameDomainEvent.PerformanceAnnounced(
                 this, game.getId(), seq, perf.getId(), perf.getType().name(),
-                slotInfos, judgeNames, perf.getYoutubeUrl(), perf.getConfirmDeadlineAt()));
+                slotInfos, judgeNames, judgePlayerIds, perf.getYoutubeUrl(), perf.getConfirmDeadlineAt()));
     }
 
     private void announceNextQueued(Game game) {
@@ -519,10 +522,13 @@ public class PerformanceService {
                 .map(s -> new SlotDto(s.getId(), s.getSlotIndex(), s.getCurrentPlayerId(),
                         playerNames.getOrDefault(s.getCurrentPlayerId(), "?"), s.getState().name()))
                 .toList();
+        List<UUID> judgePlayerIds = judgeRepo.findByPerformanceId(perf.getId()).stream()
+                .map(JudgeAssignment::getJudgePlayerId)
+                .toList();
         return new CurrentPerformanceDto(
                 perf.getId(), perf.getType().name(), perf.getState().name(),
                 perf.getYoutubeUrl(), perf.getConfirmDeadlineAt(), perf.getReplacementOpensAt(),
-                slotDtos);
+                slotDtos, judgePlayerIds);
     }
 
     private Map<UUID, String> buildPlayerNameMap(UUID gameId) {
