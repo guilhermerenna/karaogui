@@ -1,0 +1,51 @@
+spring:
+  application:
+    name: karaogui-backend
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      show-details: never
+
+# All game-balance / tunable values live under this namespace (see docs/Technical/T08).
+karaogui:
+  timers:
+    ready-confirm-window: 30s
+    replacement-open-after: 15s
+    break-duration: 15m
+  scoreboard:
+    max-displayed-player: 5
+    page-interval: 5s
+  assignment:
+    w-perf: 10
+    w-score: 1
+    score-norm: 10
+  scoring:
+    subjective-judge-weight: 0.85
+    subjective-audience-weight: 0.15
+    subjective-point-scale: 10
+    trivia-correct-points: 5
+    trivia-speed-bonus: [3, 2, 1, 0]
+    trivia-wrong-penalty: 2
+    physical-challenge-points: 50
+    like-points: 1
+  challenge:
+    job-interval: 60s
+    threshold: 4
+  # MVP feature flags (see T07 §7) — deferred features ship dark.
+  features:
+    like-points: false
+    picture-upload: false
+    challenge-job: false
+    random-assignment: false
