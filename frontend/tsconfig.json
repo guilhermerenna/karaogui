@@ -4,10 +4,10 @@
   "compileOnSave": false,
   "compilerOptions": {
     "paths": {
-      "api": ["./dist/api"],
-      "contracts": ["./dist/contracts"],
-      "realtime": ["./dist/realtime"],
-      "ui": ["./dist/ui"]
+      "api": ["./projects/api/src/public-api.ts"],
+      "contracts": ["./projects/contracts/src/public-api.ts"],
+      "realtime": ["./projects/realtime/src/public-api.ts"],
+      "ui": ["./projects/ui/src/public-api.ts"]
     },
     "noImplicitOverride": true,
     "noPropertyAccessFromIndexSignature": true,
