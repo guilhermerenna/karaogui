@@ -41,4 +41,5 @@ dependencies {
 
 tasks.named('test') {
 	useJUnitPlatform()
+	environment 'TESTCONTAINERS_RYUK_DISABLED', 'true'
 }

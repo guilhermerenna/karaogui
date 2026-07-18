@@ -1,28 +1,36 @@
 package com.karaogui.backend.game;
 
-import java.util.List;
-import java.util.Map;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
+import com.karaogui.backend.auth.PlayerIdentity;
+import com.karaogui.backend.game.dto.CreateGameRequest;
+import com.karaogui.backend.game.dto.CreateGameResponse;
+import com.karaogui.backend.game.dto.JoinGameRequest;
+import jakarta.validation.Valid;
+import org.springframework.http.HttpStatus;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
-/**
- * Phase 0 placeholder for the snapshot half of the snapshot+stream pattern (T02 §4.1).
- * Returns an empty shell so the web layer and routing are verifiable before the domain
- * is built out in Phase 1.
- */
 @RestController
 @RequestMapping("/api/games")
-class GameSnapshotController {
+class GameController {
 
-	@GetMapping("/{gameId}")
-	Map<String, Object> snapshot(@PathVariable String gameId) {
-		return Map.of(
-				"gameId", gameId,
-				"state", "CREATED",
-				"players", List.of(),
-				"currentPerformance", Map.of(),
-				"ranking", List.of());
-	}
+    private final GameService gameService;
+
+    GameController(GameService gameService) {
+        this.gameService = gameService;
+    }
+
+    @PostMapping
+    @ResponseStatus(HttpStatus.CREATED)
+    CreateGameResponse create(@Valid @RequestBody CreateGameRequest req) {
+        return gameService.createGame(req);
+    }
+
+    @PostMapping("/join")
+    @ResponseStatus(HttpStatus.CREATED)
+    CreateGameResponse join(@Valid @RequestBody JoinGameRequest req) {
+        return gameService.joinGame(req);
+    }
 }

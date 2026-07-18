@@ -1,15 +1,13 @@
--- game_state enum
-CREATE TYPE game_state AS ENUM ('CREATED', 'ACTIVE', 'OVER');
-
 -- game: root aggregate
 CREATE TABLE game (
-    id           uuid PRIMARY KEY,
-    join_code    char(6)     NOT NULL,
-    state        game_state  NOT NULL DEFAULT 'CREATED',
-    host_player_id uuid      NULL,     -- FK set after host player row exists
-    created_at   timestamptz NOT NULL,
-    started_at   timestamptz NULL,
-    ended_at     timestamptz NULL,
+    id             uuid        PRIMARY KEY,
+    join_code      varchar(6)  NOT NULL,
+    state          text        NOT NULL DEFAULT 'CREATED'
+                               CHECK (state IN ('CREATED', 'ACTIVE', 'OVER')),
+    host_player_id uuid        NULL,     -- FK set after host player row exists
+    created_at     timestamptz NOT NULL,
+    started_at     timestamptz NULL,
+    ended_at       timestamptz NULL,
     CONSTRAINT uq_game_join_code UNIQUE (join_code)
 );
 
@@ -24,11 +22,11 @@ CREATE TABLE player (
     on_break_until                  timestamptz NULL,
     is_host                         boolean     NOT NULL DEFAULT false,
     joined_at                       timestamptz NOT NULL,
-    version                         bigint      NOT NULL DEFAULT 0  -- optimistic locking
+    version                         bigint      NOT NULL DEFAULT 0
 );
 
-CREATE INDEX idx_player_game_id       ON player (game_id);
-CREATE INDEX idx_player_game_score    ON player (game_id, score DESC);
+CREATE INDEX idx_player_game_id    ON player (game_id);
+CREATE INDEX idx_player_game_score ON player (game_id, score DESC);
 
 -- add host FK now that player table exists
 ALTER TABLE game
