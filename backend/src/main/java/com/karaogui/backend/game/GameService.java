@@ -23,6 +23,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -38,16 +39,19 @@ public class GameService {
     private final GameDisplayTokenRepository displayTokenRepo;
     private final JoinCodeGenerator joinCodeGenerator;
     private final KaraoguiProperties props;
+    private final ApplicationEventPublisher eventPublisher;
 
     public GameService(GameRepository gameRepo, PlayerRepository playerRepo,
             PlayerSessionRepository sessionRepo, GameDisplayTokenRepository displayTokenRepo,
-            JoinCodeGenerator joinCodeGenerator, KaraoguiProperties props) {
+            JoinCodeGenerator joinCodeGenerator, KaraoguiProperties props,
+            ApplicationEventPublisher eventPublisher) {
         this.gameRepo = gameRepo;
         this.playerRepo = playerRepo;
         this.sessionRepo = sessionRepo;
         this.displayTokenRepo = displayTokenRepo;
         this.joinCodeGenerator = joinCodeGenerator;
         this.props = props;
+        this.eventPublisher = eventPublisher;
     }
 
     @Transactional
@@ -103,6 +107,11 @@ public class GameService {
         String tokenHash = TokenAuthFilter.sha256Hex(rawToken);
         sessionRepo.save(new PlayerSession(UUID.randomUUID(), playerId, game.getId(), tokenHash, now));
 
+        long seq = game.incrementAndGetSeq();
+        gameRepo.save(game);
+        eventPublisher.publishEvent(
+                new GameDomainEvent.PlayerJoined(this, game.getId(), playerId, player.getDisplayName(), seq));
+
         return new CreateGameResponse(
                 game.getId(),
                 game.getJoinCode(),
@@ -129,7 +138,13 @@ public class GameService {
 
         game.setState(GameState.ACTIVE);
         game.setStartedAt(Instant.now());
+
+        List<Player> players = playerRepo.findAllByGameIdOrderByScoreDesc(gameId);
+        long seqState = game.incrementAndGetSeq();
+        long seqRanking = game.incrementAndGetSeq();
         gameRepo.save(game);
+        eventPublisher.publishEvent(
+                new GameDomainEvent.GameStarted(this, gameId, seqState, seqRanking, players.size()));
 
         return buildSnapshot(game);
     }

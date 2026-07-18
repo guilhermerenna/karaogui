@@ -1,0 +1,1 @@
+ALTER TABLE game ADD COLUMN game_seq bigint NOT NULL DEFAULT 0;

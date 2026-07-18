@@ -41,6 +41,27 @@ export interface GameSnapshotDto {
   ranking: RankingPageDto;
 }
 
+export interface GameEventEnvelope<T = unknown> {
+  seq: number;
+  type: string;
+  at: string;
+  data: T;
+}
+
+export interface PlayerJoinedData {
+  playerId: string;
+  displayName: string;
+}
+
+export interface GameStartedData {
+  gameId: string;
+}
+
+export interface RankingUpdatedData {
+  entries: RankingEntry[];
+  totalPlayers: number;
+}
+
 export interface SessionInfo {
   gameId: string;
   token: string;

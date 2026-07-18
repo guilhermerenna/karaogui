@@ -1,8 +1,9 @@
-import { Component, OnInit, signal } from '@angular/core';
+import { Component, OnDestroy, OnInit, signal } from '@angular/core';
 import { Router } from '@angular/router';
 import { HttpErrorResponse } from '@angular/common/http';
 import { GameApiService } from 'api';
-import type { GameSnapshotDto, PlayerDto, SessionInfo } from 'contracts';
+import { RealtimeService } from 'realtime';
+import type { SessionInfo } from 'contracts';
 
 @Component({
   selector: 'app-lobby',
@@ -16,20 +17,17 @@ import type { GameSnapshotDto, PlayerDto, SessionInfo } from 'contracts';
           <div style="margin-bottom:1.5rem">
             <div style="font-size:.75rem;color:#888;margin-bottom:.25rem">Join code</div>
             <div style="font-size:2.5rem;font-weight:800;letter-spacing:.3em;color:#6366f1">
-              {{ snapshot()?.joinCodeDisplay ?? '------' }}
+              {{ joinCodeDisplay }}
             </div>
           </div>
 
           <div style="margin-bottom:1.5rem">
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.75rem">
-              <h2 style="margin:0">Players ({{ snapshot()?.players?.length ?? 0 }})</h2>
-              <button class="btn btn-secondary" style="width:auto;padding:.5rem 1rem;font-size:.875rem" (click)="refresh()">
-                Refresh
-              </button>
+              <h2 style="margin:0">Players ({{ rt.players$().length }})</h2>
             </div>
-            @if (snapshot()?.players?.length) {
+            @if (rt.players$().length) {
               <ul style="list-style:none;margin:0;padding:0">
-                @for (p of snapshot()!.players; track p.playerId) {
+                @for (p of rt.players$(); track p.playerId) {
                   <li style="display:flex;align-items:center;padding:.5rem 0;border-bottom:1px solid #f0f0f0">
                     <span style="flex:1">{{ p.displayName }}</span>
                     @if (p.isHost) { <span style="font-size:.75rem;background:#6366f1;color:#fff;border-radius:4px;padding:.1rem .4rem">host</span> }
@@ -41,13 +39,13 @@ import type { GameSnapshotDto, PlayerDto, SessionInfo } from 'contracts';
             }
           </div>
 
-          @if (snapshot()?.state === 'ACTIVE') {
+          @if (rt.gameState$() === 'ACTIVE') {
             <div style="background:#dcfce7;border-radius:8px;padding:1rem;text-align:center;font-weight:600;color:#166534;margin-bottom:1rem">
               Game started!
             </div>
           }
 
-          @if (session.isHost && snapshot()?.state === 'CREATED') {
+          @if (session.isHost && rt.gameState$() === 'CREATED') {
             <button class="btn btn-primary" style="margin-bottom:1rem" [disabled]="starting()" (click)="startGame()">
               {{ starting() ? 'Starting…' : 'Start game' }}
             </button>
@@ -73,27 +71,28 @@ import type { GameSnapshotDto, PlayerDto, SessionInfo } from 'contracts';
     </div>
   `,
 })
-export class LobbyComponent implements OnInit {
+export class LobbyComponent implements OnInit, OnDestroy {
   session: SessionInfo | null = null;
-  snapshot = signal<GameSnapshotDto | null>(null);
-  loading = signal(false);
+  joinCodeDisplay = '';
   starting = signal(false);
   error = signal('');
   copied = signal(false);
 
-  constructor(private api: GameApiService, private router: Router) {}
+  private resnapSub: any = null;
+
+  constructor(public rt: RealtimeService, private api: GameApiService, private router: Router) {}
 
   ngOnInit() {
     const raw = sessionStorage.getItem('session');
     if (!raw) return;
     this.session = JSON.parse(raw) as SessionInfo;
-    this.refresh();
-  }
 
-  refresh() {
-    if (!this.session) return;
     this.api.getSnapshot(this.session.gameId, this.session.token).subscribe({
-      next: (snap) => this.snapshot.set(snap),
+      next: (snap) => {
+        this.joinCodeDisplay = snap.joinCodeDisplay;
+        this.rt.applySnapshot(snap);
+        this.rt.connect(this.session!.gameId, this.session!.token, 'PHONE');
+      },
       error: (err: HttpErrorResponse) => {
         if (err.status === 401 || err.status === 403) {
           sessionStorage.removeItem('session');
@@ -101,6 +100,18 @@ export class LobbyComponent implements OnInit {
         }
       },
     });
+
+    this.resnapSub = this.rt.resnap$.subscribe(() => {
+      if (!this.session) return;
+      this.api.getSnapshot(this.session.gameId, this.session.token).subscribe({
+        next: (snap) => this.rt.applySnapshot(snap),
+      });
+    });
+  }
+
+  ngOnDestroy() {
+    this.resnapSub?.unsubscribe();
+    this.rt.disconnect();
   }
 
   startGame() {
@@ -109,7 +120,7 @@ export class LobbyComponent implements OnInit {
     this.error.set('');
     this.api.startGame(this.session.gameId, this.session.token).subscribe({
       next: (snap) => {
-        this.snapshot.set(snap);
+        this.rt.applySnapshot(snap);
         this.starting.set(false);
       },
       error: (err: HttpErrorResponse) => {

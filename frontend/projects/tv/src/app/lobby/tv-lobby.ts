@@ -1,8 +1,8 @@
-import { Component, OnInit, signal } from '@angular/core';
+import { Component, OnDestroy, OnInit, signal } from '@angular/core';
 import { ActivatedRoute } from '@angular/router';
 import { HttpErrorResponse } from '@angular/common/http';
 import { GameApiService } from 'api';
-import type { GameSnapshotDto } from 'contracts';
+import { RealtimeService } from 'realtime';
 
 @Component({
   selector: 'app-tv-lobby',
@@ -19,7 +19,7 @@ import type { GameSnapshotDto } from 'contracts';
           <div class="tv-title">KaraoGUI</div>
           <div class="tv-subtitle" style="color:#f87171">{{ error() }}</div>
         </div>
-      } @else if (!snapshot()) {
+      } @else if (!loaded()) {
         <div class="tv-waiting">
           <div class="tv-title">KaraoGUI</div>
           <div class="tv-subtitle">Loading…</div>
@@ -28,16 +28,15 @@ import type { GameSnapshotDto } from 'contracts';
         <div class="tv-content">
           <div class="tv-left">
             <div class="tv-label">Join code</div>
-            <div class="tv-join-code">{{ snapshot()!.joinCodeDisplay }}</div>
-            <div class="tv-state-badge" [class.active]="snapshot()!.state === 'ACTIVE'">
-              {{ snapshot()!.state === 'ACTIVE' ? 'Game in progress' : 'Waiting for host to start' }}
+            <div class="tv-join-code">{{ joinCodeDisplay }}</div>
+            <div class="tv-state-badge" [class.active]="rt.gameState$() === 'ACTIVE'">
+              {{ rt.gameState$() === 'ACTIVE' ? 'Game in progress' : 'Waiting for host to start' }}
             </div>
-            <button class="tv-refresh" (click)="refresh()">Refresh</button>
           </div>
           <div class="tv-right">
-            <div class="tv-label">Players ({{ snapshot()!.players.length }})</div>
+            <div class="tv-label">Players ({{ rt.players$().length }})</div>
             <ul class="tv-player-list">
-              @for (p of snapshot()!.players; track p.playerId) {
+              @for (p of rt.players$(); track p.playerId) {
                 <li class="tv-player">
                   <span class="tv-player-name">{{ p.displayName }}</span>
                   @if (p.isHost) { <span class="tv-host-badge">host</span> }
@@ -109,17 +108,6 @@ import type { GameSnapshotDto } from 'contracts';
       background: #14532d;
       color: #86efac;
     }
-    .tv-refresh {
-      display: block;
-      padding: .625rem 1.5rem;
-      border: 1.5px solid #374151;
-      border-radius: 8px;
-      background: transparent;
-      color: #9ca3af;
-      font-size: 1rem;
-      cursor: pointer;
-    }
-    .tv-refresh:hover { background: #1e293b; }
     .tv-right {
       flex: 1;
     }
@@ -153,29 +141,42 @@ import type { GameSnapshotDto } from 'contracts';
     }
   `],
 })
-export class TvLobbyComponent implements OnInit {
+export class TvLobbyComponent implements OnInit, OnDestroy {
   gameId: string | null = null;
   displayToken: string | null = null;
-  snapshot = signal<GameSnapshotDto | null>(null);
+  joinCodeDisplay = '';
+  loaded = signal(false);
   error = signal('');
 
-  constructor(private route: ActivatedRoute, private api: GameApiService) {}
+  private resnapSub: any = null;
+
+  constructor(public rt: RealtimeService, private route: ActivatedRoute, private api: GameApiService) {}
 
   ngOnInit() {
     this.route.queryParams.subscribe(params => {
       this.gameId = params['gid'] ?? null;
       this.displayToken = params['dt'] ?? null;
       if (this.gameId && this.displayToken) {
-        this.refresh();
+        this._loadAndConnect();
       }
     });
   }
 
-  refresh() {
+  ngOnDestroy() {
+    this.resnapSub?.unsubscribe();
+    this.rt.disconnect();
+  }
+
+  private _loadAndConnect() {
     if (!this.gameId || !this.displayToken) return;
     this.error.set('');
     this.api.getSnapshot(this.gameId, this.displayToken).subscribe({
-      next: (snap) => this.snapshot.set(snap),
+      next: (snap) => {
+        this.joinCodeDisplay = snap.joinCodeDisplay;
+        this.rt.applySnapshot(snap);
+        this.loaded.set(true);
+        this.rt.connect(this.gameId!, this.displayToken!, 'TV');
+      },
       error: (err: HttpErrorResponse) => {
         if (err.status === 403 || err.status === 401) {
           this.error.set('Invalid display token. Ask the host for a new TV link.');
@@ -183,6 +184,13 @@ export class TvLobbyComponent implements OnInit {
           this.error.set('Could not load game. Please refresh.');
         }
       },
+    });
+
+    this.resnapSub = this.rt.resnap$.subscribe(() => {
+      if (!this.gameId || !this.displayToken) return;
+      this.api.getSnapshot(this.gameId, this.displayToken).subscribe({
+        next: (snap) => this.rt.applySnapshot(snap),
+      });
     });
   }
 }

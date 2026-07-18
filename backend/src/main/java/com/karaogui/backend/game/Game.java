@@ -35,6 +35,9 @@ public class Game {
     @Column(name = "ended_at")
     private Instant endedAt;
 
+    @Column(name = "game_seq", nullable = false)
+    private long gameSeq = 0;
+
     protected Game() {}
 
     public Game(UUID id, String joinCode, GameState state, UUID hostPlayerId, Instant createdAt) {
@@ -57,4 +60,11 @@ public class Game {
     public void setState(GameState state) { this.state = state; }
     public void setStartedAt(Instant startedAt) { this.startedAt = startedAt; }
     public void setEndedAt(Instant endedAt) { this.endedAt = endedAt; }
+
+    public long getGameSeq() { return gameSeq; }
+
+    public long incrementAndGetSeq() {
+        this.gameSeq += 1;
+        return this.gameSeq;
+    }
 }
