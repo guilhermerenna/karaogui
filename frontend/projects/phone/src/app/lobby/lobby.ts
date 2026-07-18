@@ -49,18 +49,6 @@ import type { SessionInfo } from 'contracts';
           @if (error()) {
             <p class="error-msg">{{ error() }}</p>
           }
-
-          @if (session.isHost) {
-            <div style="margin-top:1.5rem;padding-top:1rem;border-top:1px solid #eee">
-              <div style="font-size:.75rem;color:#888;margin-bottom:.5rem">TV display link</div>
-              <div style="display:flex;gap:.5rem;align-items:center">
-                <input type="text" [value]="tvLink()" readonly style="flex:1;font-size:.75rem;color:#555" />
-                <button class="btn btn-secondary" style="width:auto;padding:.5rem .75rem;font-size:.75rem" (click)="copyTvLink()">
-                  {{ copied() ? 'Copied!' : 'Copy' }}
-                </button>
-              </div>
-            </div>
-          }
         }
       </div>
     </div>
@@ -72,7 +60,6 @@ export class LobbyComponent implements OnInit, OnDestroy {
   joinCode = '';
   starting = signal(false);
   error = signal('');
-  copied = signal(false);
 
   private resnapSub: any = null;
 
@@ -132,17 +119,4 @@ export class LobbyComponent implements OnInit, OnDestroy {
       },
     });
   }
-
-  tvLink(): string {
-    if (!this.session || !this.joinCode) return '';
-    return `http://${window.location.hostname}:4200/?jc=${this.joinCode}&dt=${this.session.displayToken}`;
-  }
-
-  copyTvLink() {
-    navigator.clipboard.writeText(this.tvLink()).then(() => {
-      this.copied.set(true);
-      setTimeout(() => this.copied.set(false), 2000);
-    });
-  }
 }
-

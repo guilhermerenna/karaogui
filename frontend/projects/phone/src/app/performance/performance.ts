@@ -22,6 +22,9 @@ const CRITERIA = ['PITCH', 'ENERGY', 'STAGE_PRESENCE'] as const;
   imports: [FormsModule],
   template: `
     <div class="page">
+      <!-- FLOATING BACK BUTTON -->
+      <button class="btn-back" (click)="router.navigate(['/'])">← Back</button>
+
       <div class="card" style="max-width:520px">
 
         @if (!session) {
@@ -32,41 +35,48 @@ const CRITERIA = ['PITCH', 'ENERGY', 'STAGE_PRESENCE'] as const;
             <span style="font-size:.8rem;color:#888">{{ session.displayName }}</span>
           </div>
 
-          <!-- QUEUE FORM (visible to all players) -->
-          <details style="margin-bottom:1.5rem" [attr.open]="rt.currentPerformance$() === null ? '' : null">
-              <summary style="cursor:pointer;font-weight:600;margin-bottom:.75rem">Queue next performance</summary>
+          <!-- COMMENTS (visible when game is ACTIVE, hidden for judges during a performance) -->
+          @if (rt.gameState$() === 'ACTIVE' && !isJudge()) {
+            <details style="margin-bottom:1.5rem" open>
+              <summary style="cursor:pointer;font-weight:600">Comments ({{ rt.comments$().length }})</summary>
               <div style="margin-top:.75rem">
-                <label style="display:block;font-size:.85rem;margin-bottom:.25rem">YouTube URL</label>
-                <input type="url" [(ngModel)]="queueUrl" placeholder="https://youtu.be/..." class="input" style="margin-bottom:.75rem" />
 
-                <label style="display:block;font-size:.85rem;margin-bottom:.25rem">Select performers</label>
-                <div style="margin-bottom:.5rem">
-                  <label style="display:flex;align-items:center;gap:.75rem;font-size:.85rem">
-                    <span style="white-space:nowrap">Performers: <strong>{{ slotCount() }}</strong></span>
-                    <input type="range" min="1" [max]="rt.players$().length"
-                      [value]="slotCount()" (input)="setSlotCount(+$any($event.target).value)"
-                      style="flex:1" />
-                    <span style="color:#9ca3af;font-size:.75rem">max {{ rt.players$().length }}</span>
-                  </label>
+                <!-- Post form -->
+                <div style="display:flex;flex-direction:column;gap:.5rem;margin-bottom:1rem">
+                  <textarea [(ngModel)]="commentBody" maxlength="280" rows="3"
+                    placeholder="Say something…"
+                    style="width:100%;resize:none;border:1px solid #d1d5db;border-radius:6px;padding:.5rem;font-size:.875rem;box-sizing:border-box"></textarea>
+                  <button class="btn btn-primary" style="align-self:flex-end"
+                    [disabled]="postingComment() || !commentBody.trim()" (click)="postComment()">
+                    Send
+                  </button>
                 </div>
-                <div style="margin-bottom:.75rem">
-                  @for (p of rt.players$(); track p.playerId) {
-                    <label style="display:flex;align-items:center;gap:.5rem;padding:.3rem 0"
-                      [style.opacity]="!selectedPerformers().has(p.playerId) && selectedPerformers().size >= slotCount() ? '0.4' : '1'">
-                      <input type="checkbox" [checked]="selectedPerformers().has(p.playerId)"
-                        [disabled]="!selectedPerformers().has(p.playerId) && selectedPerformers().size >= slotCount()"
-                        (change)="togglePerformer(p.playerId)" />
-                      {{ p.displayName }}{{ p.playerId === session.playerId ? ' (you)' : '' }}
-                    </label>
+                @if (commentError()) { <p class="error-msg" style="margin-bottom:.75rem">{{ commentError() }}</p> }
+
+                <!-- Feed -->
+                <div style="max-height:300px;overflow-y:auto">
+                  @for (c of rt.comments$(); track c.commentId) {
+                    <div style="border-bottom:1px solid #f0f0f0;padding:.6rem 0">
+                      <div style="display:flex;justify-content:space-between;align-items:flex-start">
+                        <span style="font-weight:600;font-size:.8rem">{{ c.authorName }}</span>
+                        <button style="background:none;border:none;cursor:pointer;font-size:.8rem;color:#888;padding:0"
+                          (click)="likeComment(c)">
+                          ❤ {{ c.likeCount }}
+                        </button>
+                      </div>
+                      <p style="margin:.25rem 0 0;font-size:.875rem">{{ c.body }}</p>
+                    </div>
                   }
                 </div>
 
-                <button class="btn btn-primary" [disabled]="queuing() || !queueUrl" (click)="queuePerformance()">
-                  {{ queuing() ? 'Queuing…' : 'Queue Karaoke' }}
-                </button>
-                @if (queueError()) { <p class="error-msg" style="margin-top:.5rem">{{ queueError() }}</p> }
+                @if (canLoadMore()) {
+                  <button class="btn" style="width:100%;margin-top:.75rem;font-size:.8rem" (click)="loadMoreComments()">
+                    Load more
+                  </button>
+                }
               </div>
             </details>
+          }
 
           <!-- NO ACTIVE PERFORMANCE -->
           @if (rt.currentPerformance$() === null) {
@@ -179,7 +189,7 @@ const CRITERIA = ['PITCH', 'ENERGY', 'STAGE_PRESENCE'] as const;
               @if (!rt.queueNonEmpty$() && !rt.gameEnded$()) {
                 <div style="background:#f5f3ff;border-radius:8px;padding:1.25rem;margin-bottom:1rem;text-align:center">
                   <div style="font-weight:600;margin-bottom:.75rem">What's next?</div>
-                  <p style="font-size:.85rem;color:#555;margin:0 0 1rem">Queue another performance above, or end the game.</p>
+                  <p style="font-size:.85rem;color:#555;margin:0 0 1rem">Queue another performance below, or end the game.</p>
                   <button class="btn" style="background:#ef4444;color:#fff;border:none"
                     [disabled]="endingGame()" (click)="endGame()">
                     {{ endingGame() ? 'Ending…' : 'End Game' }}
@@ -190,7 +200,7 @@ const CRITERIA = ['PITCH', 'ENERGY', 'STAGE_PRESENCE'] as const;
             }
 
             <!-- SLOT STATUS -->
-            <div style="margin-top:1rem">
+            <div style="margin-top:1rem;margin-bottom:1.5rem">
               <div style="font-size:.8rem;color:#888;margin-bottom:.5rem">Performers</div>
               <div style="display:flex;flex-wrap:wrap;gap:.5rem">
                 @for (slot of perf.slots; track slot.slotId) {
@@ -204,52 +214,64 @@ const CRITERIA = ['PITCH', 'ENERGY', 'STAGE_PRESENCE'] as const;
             </div>
           }
 
-          <!-- COMMENTS (visible any time game is ACTIVE) -->
-          @if (rt.gameState$() === 'ACTIVE') {
-            <details style="margin-top:1.5rem">
-              <summary style="cursor:pointer;font-weight:600">Comments ({{ rt.comments$().length }})</summary>
-              <div style="margin-top:.75rem">
+          <!-- QUEUE FORM (visible to all players) -->
+          <details [attr.open]="rt.currentPerformance$() === null ? '' : null">
+            <summary style="cursor:pointer;font-weight:600;margin-bottom:.75rem">Queue next performance</summary>
+            <div style="margin-top:.75rem">
+              <label style="display:block;font-size:.85rem;margin-bottom:.25rem">YouTube URL</label>
+              <input type="url" [(ngModel)]="queueUrl" placeholder="https://youtu.be/..." class="input" style="margin-bottom:.75rem" />
 
-                <!-- Post form -->
-                <div style="display:flex;flex-direction:column;gap:.5rem;margin-bottom:1rem">
-                  <textarea [(ngModel)]="commentBody" maxlength="280" rows="3"
-                    placeholder="Say something…"
-                    style="width:100%;resize:none;border:1px solid #d1d5db;border-radius:6px;padding:.5rem;font-size:.875rem;box-sizing:border-box"></textarea>
-                  <button class="btn btn-primary" style="align-self:flex-end"
-                    [disabled]="postingComment() || !commentBody.trim()" (click)="postComment()">
-                    Send
-                  </button>
-                </div>
-                @if (commentError()) { <p class="error-msg" style="margin-bottom:.75rem">{{ commentError() }}</p> }
-
-                <!-- Feed -->
-                <div style="max-height:300px;overflow-y:auto">
-                  @for (c of rt.comments$(); track c.commentId) {
-                    <div style="border-bottom:1px solid #f0f0f0;padding:.6rem 0">
-                      <div style="display:flex;justify-content:space-between;align-items:flex-start">
-                        <span style="font-weight:600;font-size:.8rem">{{ c.authorName }}</span>
-                        <button style="background:none;border:none;cursor:pointer;font-size:.8rem;color:#888;padding:0"
-                          (click)="likeComment(c)">
-                          ❤ {{ c.likeCount }}
-                        </button>
-                      </div>
-                      <p style="margin:.25rem 0 0;font-size:.875rem">{{ c.body }}</p>
-                    </div>
-                  }
-                </div>
-
-                @if (canLoadMore()) {
-                  <button class="btn" style="width:100%;margin-top:.75rem;font-size:.8rem" (click)="loadMoreComments()">
-                    Load more
-                  </button>
+              <label style="display:block;font-size:.85rem;margin-bottom:.25rem">Select performers</label>
+              <div style="margin-bottom:.5rem">
+                <label style="display:flex;align-items:center;gap:.75rem;font-size:.85rem">
+                  <span style="white-space:nowrap">Performers: <strong>{{ slotCount() }}</strong></span>
+                  <input type="range" min="1" [max]="rt.players$().length"
+                    [value]="slotCount()" (input)="setSlotCount(+$any($event.target).value)"
+                    style="flex:1" />
+                  <span style="color:#9ca3af;font-size:.75rem">max {{ rt.players$().length }}</span>
+                </label>
+              </div>
+              <div style="margin-bottom:.75rem">
+                @for (p of rt.players$(); track p.playerId) {
+                  <label style="display:flex;align-items:center;gap:.5rem;padding:.3rem 0"
+                    [style.opacity]="!selectedPerformers().has(p.playerId) && selectedPerformers().size >= slotCount() ? '0.4' : '1'">
+                    <input type="checkbox" [checked]="selectedPerformers().has(p.playerId)"
+                      [disabled]="!selectedPerformers().has(p.playerId) && selectedPerformers().size >= slotCount()"
+                      (change)="togglePerformer(p.playerId)" />
+                    {{ p.displayName }}{{ p.playerId === session.playerId ? ' (you)' : '' }}
+                  </label>
                 }
               </div>
-            </details>
-          }
+
+              <button class="btn btn-primary" [disabled]="queuing() || !queueUrl" (click)="queuePerformance()">
+                {{ queuing() ? 'Queuing…' : 'Queue Karaoke' }}
+              </button>
+              @if (queueError()) { <p class="error-msg" style="margin-top:.5rem">{{ queueError() }}</p> }
+            </div>
+          </details>
+
         }
       </div>
     </div>
   `,
+  styles: [`
+    .btn-back {
+      position: fixed;
+      top: 1.25rem;
+      left: 1.25rem;
+      background: rgba(99,102,241,.12);
+      color: #6366f1;
+      border: 1px solid rgba(99,102,241,.3);
+      border-radius: 2rem;
+      padding: .5rem 1.1rem;
+      font-size: .85rem;
+      font-weight: 600;
+      cursor: pointer;
+      z-index: 1000;
+      backdrop-filter: blur(4px);
+    }
+    .btn-back:hover { background: rgba(99,102,241,.22); }
+  `],
 })
 export class PerformanceComponent implements OnInit, OnDestroy {
   session: SessionInfo | null = null;
@@ -312,7 +334,7 @@ export class PerformanceComponent implements OnInit, OnDestroy {
     return perf.slots.some(s => s.state === 'PENDING');
   });
 
-  constructor(public rt: RealtimeService, private api: GameApiService, private router: Router) {
+  constructor(public rt: RealtimeService, private api: GameApiService, public router: Router) {
     effect(() => {
       if (this.rt.gameEnded$()) {
         this.router.navigate(['/results']);
@@ -395,7 +417,7 @@ export class PerformanceComponent implements OnInit, OnDestroy {
       },
       error: (err: HttpErrorResponse) => {
         this.queuing.set(false);
-        this.queueError.set(err.error?.message ?? 'Could not queue performance.');
+        this.queueError.set(err.error?.error?.message ?? 'Could not queue performance.');
       },
     });
   }
@@ -410,7 +432,7 @@ export class PerformanceComponent implements OnInit, OnDestroy {
       next: () => this.confirming.set(false),
       error: (err: HttpErrorResponse) => {
         this.confirming.set(false);
-        this.actionError.set(err.error?.message ?? 'Could not confirm slot.');
+        this.actionError.set(err.error?.error?.message ?? 'Could not confirm slot.');
       },
     });
   }
@@ -425,7 +447,7 @@ export class PerformanceComponent implements OnInit, OnDestroy {
       next: () => this.volunteering.set(false),
       error: (err: HttpErrorResponse) => {
         this.volunteering.set(false);
-        this.actionError.set(err.error?.message ?? 'Could not volunteer.');
+        this.actionError.set(err.error?.error?.message ?? 'Could not volunteer.');
       },
     });
   }
@@ -447,7 +469,7 @@ export class PerformanceComponent implements OnInit, OnDestroy {
       },
       error: (err: HttpErrorResponse) => {
         this.submittingEval.set(false);
-        this.actionError.set(err.error?.message ?? 'Could not submit evaluation.');
+        this.actionError.set(err.error?.error?.message ?? 'Could not submit evaluation.');
       },
     });
   }
@@ -467,7 +489,7 @@ export class PerformanceComponent implements OnInit, OnDestroy {
       },
       error: (err: HttpErrorResponse) => {
         this.submittingRating.set(false);
-        this.actionError.set(err.error?.message ?? 'Could not submit rating.');
+        this.actionError.set(err.error?.error?.message ?? 'Could not submit rating.');
       },
     });
   }
@@ -480,7 +502,7 @@ export class PerformanceComponent implements OnInit, OnDestroy {
       next: () => this.endingGame.set(false),
       error: (err: HttpErrorResponse) => {
         this.endingGame.set(false);
-        this.endGameError.set(err.error?.message ?? 'Could not end game.');
+        this.endGameError.set(err.error?.error?.message ?? 'Could not end game.');
       },
     });
   }
@@ -497,7 +519,7 @@ export class PerformanceComponent implements OnInit, OnDestroy {
       },
       error: (err: HttpErrorResponse) => {
         this.postingComment.set(false);
-        this.commentError.set(err.error?.message ?? 'Could not post comment.');
+        this.commentError.set(err.error?.error?.message ?? 'Could not post comment.');
       },
     });
   }
