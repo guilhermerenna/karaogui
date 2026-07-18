@@ -4,6 +4,7 @@ import {
   OnDestroy,
   OnInit,
   computed,
+  effect,
   signal,
 } from '@angular/core';
 import { FormsModule } from '@angular/forms';
@@ -11,7 +12,7 @@ import { HttpErrorResponse } from '@angular/common/http';
 import { Router } from '@angular/router';
 import { GameApiService } from 'api';
 import { RealtimeService } from 'realtime';
-import type { CriterionScore, SessionInfo } from 'contracts';
+import type { CommentDto, CriterionScore, SessionInfo } from 'contracts';
 
 const CRITERIA = ['PITCH', 'ENERGY', 'STAGE_PRESENCE'] as const;
 
@@ -164,6 +165,19 @@ const CRITERIA = ['PITCH', 'ENERGY', 'STAGE_PRESENCE'] as const;
                   }
                 </ul>
               </div>
+
+              <!-- END-GAME PROMPT — only when queue is empty and game not over -->
+              @if (!rt.queueNonEmpty$() && !rt.gameEnded$()) {
+                <div style="background:#f5f3ff;border-radius:8px;padding:1.25rem;margin-bottom:1rem;text-align:center">
+                  <div style="font-weight:600;margin-bottom:.75rem">What's next?</div>
+                  <p style="font-size:.85rem;color:#555;margin:0 0 1rem">Queue another performance above, or end the game.</p>
+                  <button class="btn" style="background:#ef4444;color:#fff;border:none"
+                    [disabled]="endingGame()" (click)="endGame()">
+                    {{ endingGame() ? 'Ending…' : 'End Game' }}
+                  </button>
+                  @if (endGameError()) { <p class="error-msg" style="margin-top:.5rem">{{ endGameError() }}</p> }
+                </div>
+              }
             }
 
             <!-- SLOT STATUS -->
@@ -179,6 +193,49 @@ const CRITERIA = ['PITCH', 'ENERGY', 'STAGE_PRESENCE'] as const;
                 }
               </div>
             </div>
+          }
+
+          <!-- COMMENTS (visible any time game is ACTIVE) -->
+          @if (rt.gameState$() === 'ACTIVE') {
+            <details style="margin-top:1.5rem">
+              <summary style="cursor:pointer;font-weight:600">Comments ({{ rt.comments$().length }})</summary>
+              <div style="margin-top:.75rem">
+
+                <!-- Post form -->
+                <div style="display:flex;gap:.5rem;margin-bottom:1rem">
+                  <textarea [(ngModel)]="commentBody" maxlength="280" rows="2"
+                    placeholder="Say something…"
+                    style="flex:1;resize:none;border:1px solid #d1d5db;border-radius:6px;padding:.5rem;font-size:.875rem"></textarea>
+                  <button class="btn btn-primary" style="align-self:flex-end"
+                    [disabled]="postingComment() || !commentBody.trim()" (click)="postComment()">
+                    Send
+                  </button>
+                </div>
+                @if (commentError()) { <p class="error-msg" style="margin-bottom:.75rem">{{ commentError() }}</p> }
+
+                <!-- Feed -->
+                <div style="max-height:300px;overflow-y:auto">
+                  @for (c of rt.comments$(); track c.commentId) {
+                    <div style="border-bottom:1px solid #f0f0f0;padding:.6rem 0">
+                      <div style="display:flex;justify-content:space-between;align-items:flex-start">
+                        <span style="font-weight:600;font-size:.8rem">{{ c.authorName }}</span>
+                        <button style="background:none;border:none;cursor:pointer;font-size:.8rem;color:#888;padding:0"
+                          (click)="likeComment(c)">
+                          ❤ {{ c.likeCount }}
+                        </button>
+                      </div>
+                      <p style="margin:.25rem 0 0;font-size:.875rem">{{ c.body }}</p>
+                    </div>
+                  }
+                </div>
+
+                @if (canLoadMore()) {
+                  <button class="btn" style="width:100%;margin-top:.75rem;font-size:.8rem" (click)="loadMoreComments()">
+                    Load more
+                  </button>
+                }
+              </div>
+            </details>
           }
         }
       </div>
@@ -207,6 +264,17 @@ export class PerformanceComponent implements OnInit, OnDestroy {
 
   evalScores: Record<string, number> = { PITCH: 5, ENERGY: 5, STAGE_PRESENCE: 5 };
 
+  endingGame = signal(false);
+  endGameError = signal('');
+
+  commentBody = '';
+  postingComment = signal(false);
+  commentError = signal('');
+  private _commentPage = 0;
+  private _totalCommentPages = 1;
+
+  readonly canLoadMore = computed(() => this._commentPage < this._totalCommentPages - 1);
+
   private timerHandle: ReturnType<typeof setInterval> | null = null;
   private resnapSub: any = null;
 
@@ -234,7 +302,13 @@ export class PerformanceComponent implements OnInit, OnDestroy {
     return perf.slots.some(s => s.state === 'PENDING');
   });
 
-  constructor(public rt: RealtimeService, private api: GameApiService, private router: Router) {}
+  constructor(public rt: RealtimeService, private api: GameApiService, private router: Router) {
+    effect(() => {
+      if (this.rt.gameEnded$()) {
+        this.router.navigate(['/results']);
+      }
+    });
+  }
 
   ngOnInit() {
     const raw = sessionStorage.getItem('session');
@@ -250,6 +324,7 @@ export class PerformanceComponent implements OnInit, OnDestroy {
         if (!this.rt.client) {
           this.rt.connect(this.session!.gameId, this.session!.token, 'PHONE');
         }
+        this._loadComments(0);
       },
       error: () => this.router.navigate(['/']),
     });
@@ -372,6 +447,61 @@ export class PerformanceComponent implements OnInit, OnDestroy {
       error: (err: HttpErrorResponse) => {
         this.submittingRating.set(false);
         this.actionError.set(err.error?.message ?? 'Could not submit rating.');
+      },
+    });
+  }
+
+  endGame() {
+    if (!this.session) return;
+    this.endingGame.set(true);
+    this.endGameError.set('');
+    this.api.endGame(this.session.gameId, this.session.token).subscribe({
+      next: () => this.endingGame.set(false),
+      error: (err: HttpErrorResponse) => {
+        this.endingGame.set(false);
+        this.endGameError.set(err.error?.message ?? 'Could not end game.');
+      },
+    });
+  }
+
+  postComment() {
+    if (!this.session || !this.commentBody.trim()) return;
+    this.postingComment.set(true);
+    this.commentError.set('');
+    const body = this.commentBody.trim();
+    this.api.postComment(this.session.gameId, this.session.token, body).subscribe({
+      next: () => {
+        this.postingComment.set(false);
+        this.commentBody = '';
+      },
+      error: (err: HttpErrorResponse) => {
+        this.postingComment.set(false);
+        this.commentError.set(err.error?.message ?? 'Could not post comment.');
+      },
+    });
+  }
+
+  likeComment(comment: CommentDto) {
+    if (!this.session) return;
+    this.api.likeComment(this.session.gameId, this.session.token, comment.commentId).subscribe();
+  }
+
+  loadMoreComments() {
+    if (!this.session || !this.canLoadMore()) return;
+    this._loadComments(this._commentPage + 1);
+  }
+
+  private _loadComments(page: number) {
+    if (!this.session) return;
+    this.api.getComments(this.session.gameId, this.session.token, page).subscribe({
+      next: (comments) => {
+        this._commentPage = page;
+        if (page === 0) {
+          this.rt.prependComments(comments);
+        } else {
+          this.rt.appendComments(comments);
+        }
+        this._totalCommentPages = comments.length === 20 ? page + 2 : page + 1;
       },
     });
   }

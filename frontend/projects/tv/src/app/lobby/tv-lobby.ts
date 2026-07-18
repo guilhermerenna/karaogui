@@ -29,6 +29,32 @@ import { RealtimeService } from 'realtime';
       } @else {
         <div class="tv-content">
 
+          <!-- GAME OVER OVERLAY -->
+          @if (rt.gameEnded$()) {
+            <div style="position:fixed;inset:0;background:#0f172a;display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:10">
+              <div style="font-size:5rem;font-weight:900;color:#a5b4fc;margin-bottom:.5rem">Game Over</div>
+              <div style="font-size:1.5rem;color:#6b7280;margin-bottom:3rem">Final Standings</div>
+
+              <div style="width:100%;max-width:700px">
+                @for (entry of resultPage(); track entry.rank) {
+                  <div style="display:flex;align-items:center;gap:1.5rem;padding:1rem 1.5rem;border-radius:12px;margin-bottom:.75rem"
+                    [style.background]="entry.rank === 1 ? '#713f12' : entry.rank === 2 ? '#1e293b' : entry.rank === 3 ? '#422006' : '#0f172a'">
+                    <span style="font-size:2.5rem;min-width:3rem;text-align:center">{{ tvMedal(entry.rank) }}</span>
+                    <span style="flex:1;font-size:2rem;font-weight:700;color:#e2e8f0">{{ entry.displayName }}</span>
+                    <span style="font-size:2.5rem;font-weight:900;color:#a5b4fc">{{ entry.score }} pts</span>
+                  </div>
+                }
+              </div>
+
+              <div style="display:flex;gap:.75rem;margin-top:2rem">
+                @for (p of resultPageIndicators(); track $index) {
+                  <div style="width:10px;height:10px;border-radius:50%"
+                    [style.background]="$index === resultPageIndex() ? '#a5b4fc' : '#334155'"></div>
+                }
+              </div>
+            </div>
+          }
+
           <!-- LEFT PANEL: join code + slot status -->
           <div class="tv-left">
             <div class="tv-label">Join code</div>
@@ -307,8 +333,23 @@ export class TvLobbyComponent implements OnInit, OnDestroy {
     return this.sanitizer.bypassSecurityTrustResourceUrl(`https://www.youtube.com/embed/${id}?autoplay=1`);
   });
 
+  private _resultPageIndex = signal(0);
+  readonly resultPageIndex = this._resultPageIndex.asReadonly();
+
+  readonly resultPageIndicators = computed(() => {
+    const total = this.rt.ranking$().length;
+    return Array.from({ length: Math.ceil(total / 5) });
+  });
+
+  readonly resultPage = computed(() => {
+    const all = this.rt.ranking$();
+    const start = this._resultPageIndex() * 5;
+    return all.slice(start, start + 5);
+  });
+
   private resnapSub: any = null;
   private timerHandle: ReturnType<typeof setInterval> | null = null;
+  private resultPageHandle: ReturnType<typeof setInterval> | null = null;
 
   constructor(
     public rt: RealtimeService,
@@ -335,11 +376,20 @@ export class TvLobbyComponent implements OnInit, OnDestroy {
         this.secondsLeft.set(0);
       }
     }, 500);
+
+    this.resultPageHandle = setInterval(() => {
+      const total = this.rt.ranking$().length;
+      const pages = Math.ceil(total / 5);
+      if (pages > 1) {
+        this._resultPageIndex.update(i => (i + 1) % pages);
+      }
+    }, 5000);
   }
 
   ngOnDestroy() {
     this.resnapSub?.unsubscribe();
     if (this.timerHandle) clearInterval(this.timerHandle);
+    if (this.resultPageHandle) clearInterval(this.resultPageHandle);
     this.rt.disconnect();
   }
 
@@ -381,5 +431,12 @@ export class TvLobbyComponent implements OnInit, OnDestroy {
       if (m) return m[1];
     }
     return null;
+  }
+
+  tvMedal(rank: number): string {
+    if (rank === 1) return '🥇';
+    if (rank === 2) return '🥈';
+    if (rank === 3) return '🥉';
+    return `#${rank}`;
   }
 }

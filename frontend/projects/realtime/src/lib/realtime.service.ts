@@ -34,7 +34,7 @@ export class RealtimeService {
   private _gameEnded = signal<boolean>(false);
   private _queueNonEmpty = signal<boolean>(false);
   private _comments = signal<CommentDto[]>([]);
-  private _lastSeq = -1;
+  private _topicSeq = new Map<string, number>();
 
   readonly players$: Signal<PlayerDto[]> = this._players.asReadonly();
   readonly gameState$: Signal<string> = this._gameState.asReadonly();
@@ -49,7 +49,7 @@ export class RealtimeService {
 
   connect(gameId: string, token: string, surface: 'PHONE' | 'TV'): void {
     this.gameId = gameId;
-    this._lastSeq = -1;
+    this._topicSeq.clear();
 
     this.client = new Client({
       brokerURL: 'ws://localhost:8080/ws',
@@ -80,6 +80,10 @@ export class RealtimeService {
     this._comments.update(prev => [...comments, ...prev].slice(0, 100));
   }
 
+  appendComments(comments: CommentDto[]): void {
+    this._comments.update(prev => [...prev, ...comments].slice(0, 200));
+  }
+
   disconnect(): void {
     this.client?.deactivate();
     this.client = null;
@@ -92,7 +96,7 @@ export class RealtimeService {
 
     this.client.subscribe(`${base}/players`, (msg: IMessage) => {
       const event: GameEventEnvelope<PlayerJoinedData> = JSON.parse(msg.body);
-      if (this._checkSeq(event.seq)) {
+      if (this._checkSeq('players', event.seq)) {
         if (event.type === 'PLAYER_JOINED') {
           this._players.update((prev) => [
             ...prev,
@@ -111,7 +115,7 @@ export class RealtimeService {
 
     this.client.subscribe(`${base}/state`, (msg: IMessage) => {
       const event: GameEventEnvelope = JSON.parse(msg.body);
-      if (this._checkSeq(event.seq)) {
+      if (this._checkSeq('state', event.seq)) {
         if (event.type === 'GAME_STARTED') {
           this._gameState.set('ACTIVE');
         } else if (event.type === 'GAME_ENDED') {
@@ -123,7 +127,7 @@ export class RealtimeService {
 
     this.client.subscribe(`${base}/ranking`, (msg: IMessage) => {
       const event: GameEventEnvelope<RankingUpdatedData> = JSON.parse(msg.body);
-      if (this._checkSeq(event.seq)) {
+      if (this._checkSeq('ranking', event.seq)) {
         if (event.type === 'RANKING_UPDATED') {
           this._ranking.set(event.data.entries ?? []);
         }
@@ -132,7 +136,7 @@ export class RealtimeService {
 
     this.client.subscribe(`${base}/performers`, (msg: IMessage) => {
       const event: GameEventEnvelope = JSON.parse(msg.body);
-      if (!this._checkSeq(event.seq)) return;
+      if (!this._checkSeq('performers', event.seq)) return;
 
       switch (event.type) {
         case 'PERFORMANCE_ANNOUNCED': {
@@ -186,7 +190,7 @@ export class RealtimeService {
 
     this.client.subscribe(`${base}/comments`, (msg: IMessage) => {
       const event: GameEventEnvelope = JSON.parse(msg.body);
-      if (!this._checkSeq(event.seq)) return;
+      if (!this._checkSeq('comments', event.seq)) return;
 
       if (event.type === 'COMMENT_POSTED') {
         const d = event.data as CommentPostedData;
@@ -209,12 +213,13 @@ export class RealtimeService {
     });
   }
 
-  private _checkSeq(seq: number): boolean {
-    if (this._lastSeq === -1 || seq === this._lastSeq + 1) {
-      this._lastSeq = seq;
+  private _checkSeq(topic: string, seq: number): boolean {
+    const last = this._topicSeq.get(topic) ?? -1;
+    if (last === -1 || seq === last + 1) {
+      this._topicSeq.set(topic, seq);
       return true;
     }
-    if (seq > this._lastSeq + 1) {
+    if (seq > last + 1) {
       this.resnap$.next();
     }
     return false;
