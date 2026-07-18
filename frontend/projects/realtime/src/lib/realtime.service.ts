@@ -2,27 +2,48 @@ import { Injectable, signal, Signal, computed } from '@angular/core';
 import { Client, IMessage } from '@stomp/stompjs';
 import { Subject } from 'rxjs';
 import {
+  CommentDto,
+  CommentLikedData,
+  CommentPostedData,
+  CurrentPerformanceDto,
+  GameEndedData,
   GameEventEnvelope,
   GameSnapshotDto,
+  PerformanceAnnouncedData,
+  PerformanceLockedData,
+  PerformanceSkippedData,
+  PerformanceSlotDto,
+  PerformanceStartedData,
   PlayerDto,
   PlayerJoinedData,
   RankingEntry,
   RankingUpdatedData,
+  SlotStateChangedData,
 } from 'contracts';
 
 @Injectable({ providedIn: 'root' })
 export class RealtimeService {
-  private client: Client | null = null;
+  client: Client | null = null;
   private gameId: string | null = null;
 
   private _players = signal<PlayerDto[]>([]);
   private _gameState = signal<string>('CREATED');
   private _ranking = signal<RankingEntry[]>([]);
+  private _currentPerformance = signal<CurrentPerformanceDto | null>(null);
+  private _judgeIds = signal<string[]>([]);
+  private _gameEnded = signal<boolean>(false);
+  private _queueNonEmpty = signal<boolean>(false);
+  private _comments = signal<CommentDto[]>([]);
   private _lastSeq = -1;
 
   readonly players$: Signal<PlayerDto[]> = this._players.asReadonly();
   readonly gameState$: Signal<string> = this._gameState.asReadonly();
   readonly ranking$: Signal<RankingEntry[]> = this._ranking.asReadonly();
+  readonly currentPerformance$: Signal<CurrentPerformanceDto | null> = this._currentPerformance.asReadonly();
+  readonly judgeIds$: Signal<string[]> = this._judgeIds.asReadonly();
+  readonly gameEnded$: Signal<boolean> = this._gameEnded.asReadonly();
+  readonly queueNonEmpty$: Signal<boolean> = this._queueNonEmpty.asReadonly();
+  readonly comments$: Signal<CommentDto[]> = this._comments.asReadonly();
 
   readonly resnap$ = new Subject<void>();
 
@@ -49,6 +70,14 @@ export class RealtimeService {
     this._players.set(snap.players);
     this._gameState.set(snap.state);
     this._ranking.set(snap.ranking?.entries ?? []);
+    const perf = snap.currentPerformance;
+    this._currentPerformance.set(perf && perf.performanceId ? perf : null);
+    this._gameEnded.set(snap.state === 'OVER');
+    this._queueNonEmpty.set(snap.queueNonEmpty ?? false);
+  }
+
+  prependComments(comments: CommentDto[]): void {
+    this._comments.update(prev => [...comments, ...prev].slice(0, 100));
   }
 
   disconnect(): void {
@@ -85,6 +114,9 @@ export class RealtimeService {
       if (this._checkSeq(event.seq)) {
         if (event.type === 'GAME_STARTED') {
           this._gameState.set('ACTIVE');
+        } else if (event.type === 'GAME_ENDED') {
+          this._gameState.set('OVER');
+          this._gameEnded.set(true);
         }
       }
     });
@@ -95,6 +127,84 @@ export class RealtimeService {
         if (event.type === 'RANKING_UPDATED') {
           this._ranking.set(event.data.entries ?? []);
         }
+      }
+    });
+
+    this.client.subscribe(`${base}/performers`, (msg: IMessage) => {
+      const event: GameEventEnvelope = JSON.parse(msg.body);
+      if (!this._checkSeq(event.seq)) return;
+
+      switch (event.type) {
+        case 'PERFORMANCE_ANNOUNCED': {
+          const d = event.data as PerformanceAnnouncedData;
+          this._currentPerformance.set({
+            performanceId: d.performanceId,
+            type: d.type,
+            state: 'CONFIRMING',
+            youtubeUrl: d.youtubeUrl,
+            confirmDeadlineAt: d.confirmDeadlineAt,
+            replacementOpensAt: null,
+            slots: d.slots,
+          });
+          const players = this._players();
+          const slotIds = new Set(d.slots.map(s => s.currentPlayerId));
+          this._judgeIds.set(players.filter(p => !slotIds.has(p.playerId)).map(p => p.playerId));
+          break;
+        }
+        case 'SLOT_STATE_CHANGED': {
+          const d = event.data as SlotStateChangedData;
+          this._currentPerformance.update(perf => {
+            if (!perf) return perf;
+            return {
+              ...perf,
+              slots: perf.slots.map(s =>
+                s.slotId === d.slotId
+                  ? { ...s, state: d.slotState as PerformanceSlotDto['state'], currentPlayerName: d.currentPlayerName }
+                  : s,
+              ),
+            };
+          });
+          break;
+        }
+        case 'PERFORMANCE_STARTED': {
+          this._currentPerformance.update(perf => perf ? { ...perf, state: 'RUNNING' } : perf);
+          break;
+        }
+        case 'PERFORMANCE_LOCKED': {
+          this._currentPerformance.update(perf => perf ? { ...perf, state: 'LOCKED' } : perf);
+          this._queueNonEmpty.set(false);
+          break;
+        }
+        case 'PERFORMANCE_SKIPPED': {
+          this._currentPerformance.set(null);
+          this._judgeIds.set([]);
+          this._queueNonEmpty.set(false);
+          break;
+        }
+      }
+    });
+
+    this.client.subscribe(`${base}/comments`, (msg: IMessage) => {
+      const event: GameEventEnvelope = JSON.parse(msg.body);
+      if (!this._checkSeq(event.seq)) return;
+
+      if (event.type === 'COMMENT_POSTED') {
+        const d = event.data as CommentPostedData;
+        const comment: CommentDto = {
+          commentId: d.commentId,
+          authorPlayerId: d.authorPlayerId,
+          authorName: d.authorName,
+          body: d.body,
+          createdAt: d.createdAt,
+          likeCount: 0,
+          likedByMe: false,
+        };
+        this._comments.update(prev => [comment, ...prev].slice(0, 100));
+      } else if (event.type === 'COMMENT_LIKED') {
+        const d = event.data as CommentLikedData;
+        this._comments.update(prev =>
+          prev.map(c => c.commentId === d.commentId ? { ...c, likeCount: d.likeCount } : c)
+        );
       }
     });
   }

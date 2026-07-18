@@ -1,4 +1,4 @@
-import { Component, OnDestroy, OnInit, signal } from '@angular/core';
+import { Component, OnDestroy, OnInit, signal, effect, ChangeDetectionStrategy } from '@angular/core';
 import { Router } from '@angular/router';
 import { HttpErrorResponse } from '@angular/common/http';
 import { GameApiService } from 'api';
@@ -7,6 +7,7 @@ import type { SessionInfo } from 'contracts';
 
 @Component({
   selector: 'app-lobby',
+  changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [],
   template: `
     <div class="page">
@@ -38,12 +39,6 @@ import type { SessionInfo } from 'contracts';
               <p style="color:#888;font-size:.9rem">Waiting for players to join…</p>
             }
           </div>
-
-          @if (rt.gameState$() === 'ACTIVE') {
-            <div style="background:#dcfce7;border-radius:8px;padding:1rem;text-align:center;font-weight:600;color:#166534;margin-bottom:1rem">
-              Game started!
-            </div>
-          }
 
           @if (session.isHost && rt.gameState$() === 'CREATED') {
             <button class="btn btn-primary" style="margin-bottom:1rem" [disabled]="starting()" (click)="startGame()">
@@ -80,7 +75,13 @@ export class LobbyComponent implements OnInit, OnDestroy {
 
   private resnapSub: any = null;
 
-  constructor(public rt: RealtimeService, private api: GameApiService, private router: Router) {}
+  constructor(public rt: RealtimeService, private api: GameApiService, private router: Router) {
+    effect(() => {
+      if (this.rt.gameState$() === 'ACTIVE') {
+        this.router.navigate(['/performance']);
+      }
+    });
+  }
 
   ngOnInit() {
     const raw = sessionStorage.getItem('session');
@@ -142,3 +143,4 @@ export class LobbyComponent implements OnInit, OnDestroy {
     });
   }
 }
+

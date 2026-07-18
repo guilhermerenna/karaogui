@@ -44,6 +44,92 @@ public class GameEventPublisher {
                 new GameEvent.RankingUpdatedData(List.of(), event.totalPlayers())));
     }
 
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+    public void onPerformanceAnnounced(GameDomainEvent.PerformanceAnnounced event) {
+        publishPerformers(event.gameId(), new GameEvent(
+                event.seq(),
+                "PERFORMANCE_ANNOUNCED",
+                Instant.now(),
+                new GameEvent.PerformanceAnnouncedData(
+                        event.performanceId(), event.type(), event.slots(),
+                        event.judgeNames(), event.youtubeUrl(), event.confirmDeadlineAt())));
+    }
+
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+    public void onSlotStateChanged(GameDomainEvent.SlotStateChanged event) {
+        publishPerformers(event.gameId(), new GameEvent(
+                event.seq(),
+                "SLOT_STATE_CHANGED",
+                Instant.now(),
+                new GameEvent.SlotStateChangedData(
+                        event.performanceId(), event.slotId(),
+                        event.slotState(), event.currentPlayerName())));
+    }
+
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+    public void onPerformanceStarted(GameDomainEvent.PerformanceStarted event) {
+        publishPerformers(event.gameId(), new GameEvent(
+                event.seq(),
+                "PERFORMANCE_STARTED",
+                Instant.now(),
+                new GameEvent.PerformanceStartedData(event.performanceId())));
+    }
+
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+    public void onPerformanceLocked(GameDomainEvent.PerformanceLocked event) {
+        publishPerformers(event.gameId(), new GameEvent(
+                event.seq(),
+                "PERFORMANCE_LOCKED",
+                Instant.now(),
+                new GameEvent.PerformanceLockedData(event.performanceId(), event.scores())));
+    }
+
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+    public void onPerformanceSkipped(GameDomainEvent.PerformanceSkipped event) {
+        publishPerformers(event.gameId(), new GameEvent(
+                event.seq(),
+                "PERFORMANCE_SKIPPED",
+                Instant.now(),
+                new GameEvent.PerformanceSkippedData(event.performanceId())));
+    }
+
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+    public void onRankingUpdated(GameDomainEvent.RankingUpdated event) {
+        publishRanking(event.gameId(), new GameEvent(
+                event.seq(),
+                "RANKING_UPDATED",
+                Instant.now(),
+                new GameEvent.RankingUpdatedData(event.entries(), event.totalPlayers())));
+    }
+
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+    public void onGameEnded(GameDomainEvent.GameEnded event) {
+        publishState(event.gameId(), new GameEvent(
+                event.seq(),
+                "GAME_ENDED",
+                Instant.now(),
+                new GameEvent.GameEndedData(event.gameId().toString())));
+    }
+
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+    public void onCommentPosted(GameDomainEvent.CommentPosted event) {
+        publishComments(event.gameId(), new GameEvent(
+                event.seq(),
+                "COMMENT_POSTED",
+                Instant.now(),
+                new GameEvent.CommentPostedData(event.commentId(), event.authorPlayerId(),
+                        event.authorName(), event.body(), event.createdAt())));
+    }
+
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+    public void onCommentLiked(GameDomainEvent.CommentLiked event) {
+        publishComments(event.gameId(), new GameEvent(
+                event.seq(),
+                "COMMENT_LIKED",
+                Instant.now(),
+                new GameEvent.CommentLikedData(event.commentId(), event.likeCount())));
+    }
+
     private void publishState(UUID gameId, GameEvent event) {
         messaging.convertAndSend(topic(gameId, "state"), event);
     }
@@ -58,6 +144,10 @@ public class GameEventPublisher {
 
     private void publishPerformers(UUID gameId, GameEvent event) {
         messaging.convertAndSend(topic(gameId, "performers"), event);
+    }
+
+    private void publishComments(UUID gameId, GameEvent event) {
+        messaging.convertAndSend(topic(gameId, "comments"), event);
     }
 
     private String topic(UUID gameId, String name) {

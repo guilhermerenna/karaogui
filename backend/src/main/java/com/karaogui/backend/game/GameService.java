@@ -18,10 +18,13 @@ import com.karaogui.backend.player.PlayerRepository;
 import com.karaogui.backend.player.PlayerSession;
 import com.karaogui.backend.player.PlayerSessionRepository;
 import jakarta.persistence.EntityNotFoundException;
+import com.karaogui.backend.performance.PerformanceService;
+import com.karaogui.backend.performance.PerformanceRepository;
+import com.karaogui.backend.performance.PerformanceState;
+import com.karaogui.backend.performance.dto.CurrentPerformanceDto;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 import java.util.UUID;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -40,11 +43,14 @@ public class GameService {
     private final JoinCodeGenerator joinCodeGenerator;
     private final KaraoguiProperties props;
     private final ApplicationEventPublisher eventPublisher;
+    private final PerformanceService performanceService;
+    private final PerformanceRepository performanceRepo;
 
     public GameService(GameRepository gameRepo, PlayerRepository playerRepo,
             PlayerSessionRepository sessionRepo, GameDisplayTokenRepository displayTokenRepo,
             JoinCodeGenerator joinCodeGenerator, KaraoguiProperties props,
-            ApplicationEventPublisher eventPublisher) {
+            ApplicationEventPublisher eventPublisher, PerformanceService performanceService,
+            PerformanceRepository performanceRepo) {
         this.gameRepo = gameRepo;
         this.playerRepo = playerRepo;
         this.sessionRepo = sessionRepo;
@@ -52,6 +58,8 @@ public class GameService {
         this.joinCodeGenerator = joinCodeGenerator;
         this.props = props;
         this.eventPublisher = eventPublisher;
+        this.performanceService = performanceService;
+        this.performanceRepo = performanceRepo;
     }
 
     @Transactional
@@ -184,18 +192,44 @@ public class GameService {
         return buildRankingPage(all, page);
     }
 
+    @Transactional
+    public void endGame(UUID gameId, PlayerIdentity identity) {
+        ScopeGuard.requirePlayerScope(identity, gameId);
+        Game game = gameRepo.findById(gameId)
+                .orElseThrow(() -> new EntityNotFoundException("Game not found: " + gameId));
+        if (game.getState() != GameState.ACTIVE) {
+            throw new GameStateException("GAME_NOT_ACTIVE", "Game must be ACTIVE to end.");
+        }
+        boolean hasQueued = !performanceRepo
+                .findByGameIdAndStateOrderByQueuePositionAsc(gameId, PerformanceState.QUEUED)
+                .isEmpty();
+        if (hasQueued) {
+            throw new GameStateException("QUEUE_NOT_EMPTY", "There are queued performances. Play them first.");
+        }
+        game.setState(GameState.OVER);
+        long seq = game.incrementAndGetSeq();
+        gameRepo.save(game);
+        eventPublisher.publishEvent(new GameDomainEvent.GameEnded(this, gameId, seq));
+    }
+
     private GameSnapshotDto buildSnapshot(Game game) {
         List<Player> players = playerRepo.findAllByGameIdOrderByScoreDesc(game.getId());
         List<PlayerDto> playerDtos = players.stream().map(this::toPlayerDto).toList();
         RankingPageDto ranking = buildRankingPage(players, 0);
+        CurrentPerformanceDto currentPerformance = performanceService.findCurrentPerformance(game.getId())
+                .orElse(null);
+        boolean queueNonEmpty = !performanceRepo
+                .findByGameIdAndStateOrderByQueuePositionAsc(game.getId(), PerformanceState.QUEUED)
+                .isEmpty();
         return new GameSnapshotDto(
                 game.getId(),
                 game.getJoinCode(),
                 JoinCodeGenerator.toDisplayFormat(game.getJoinCode()),
                 game.getState().name(),
                 playerDtos,
-                Map.of(),
-                ranking);
+                currentPerformance,
+                ranking,
+                queueNonEmpty);
     }
 
     private RankingPageDto buildRankingPage(List<Player> all, int page) {

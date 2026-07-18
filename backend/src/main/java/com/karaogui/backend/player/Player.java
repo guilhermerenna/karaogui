@@ -65,4 +65,8 @@ public class Player {
     public Instant getJoinedAt() { return joinedAt; }
 
     public void setOnBreakUntil(Instant onBreakUntil) { this.onBreakUntil = onBreakUntil; }
+
+    public void addScore(int points) { this.score += points; }
+
+    public void incrementPerformanceParticipationCount() { this.performanceParticipationCount += 1; }
 }

@@ -17,4 +17,8 @@ export const routes: Routes = [
     path: 'lobby',
     loadComponent: () => import('./lobby/lobby').then(m => m.LobbyComponent),
   },
+  {
+    path: 'performance',
+    loadComponent: () => import('./performance/performance').then(m => m.PerformanceComponent),
+  },
 ];

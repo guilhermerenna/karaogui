@@ -1,11 +1,13 @@
-import { Component, OnDestroy, OnInit, signal } from '@angular/core';
+import { Component, OnDestroy, OnInit, signal, computed, ChangeDetectionStrategy } from '@angular/core';
 import { ActivatedRoute } from '@angular/router';
 import { HttpErrorResponse } from '@angular/common/http';
+import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
 import { GameApiService } from 'api';
 import { RealtimeService } from 'realtime';
 
 @Component({
   selector: 'app-tv-lobby',
+  changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [],
   template: `
     <div class="tv-page">
@@ -26,24 +28,118 @@ import { RealtimeService } from 'realtime';
         </div>
       } @else {
         <div class="tv-content">
+
+          <!-- LEFT PANEL: join code + slot status -->
           <div class="tv-left">
             <div class="tv-label">Join code</div>
             <div class="tv-join-code">{{ joinCodeDisplay }}</div>
-            <div class="tv-state-badge" [class.active]="rt.gameState$() === 'ACTIVE'">
-              {{ rt.gameState$() === 'ACTIVE' ? 'Game in progress' : 'Waiting for host to start' }}
-            </div>
+
+            @if (rt.currentPerformance$()) {
+              @let perf = rt.currentPerformance$()!;
+              <div class="tv-label" style="margin-bottom:.75rem">Performers</div>
+              <div style="display:flex;flex-direction:column;gap:.5rem">
+                @for (slot of perf.slots; track slot.slotId) {
+                  <div class="tv-slot-card"
+                    [class.confirmed]="slot.state === 'CONFIRMED' || slot.state === 'REPLACED'"
+                    [class.pending]="slot.state === 'PENDING'">
+                    <span class="tv-slot-name">{{ slot.currentPlayerName }}</span>
+                    <span class="tv-slot-badge">{{ slot.state }}</span>
+                  </div>
+                }
+              </div>
+            } @else {
+              <div class="tv-state-badge" [class.active]="rt.gameState$() === 'ACTIVE'">
+                {{ rt.gameState$() === 'ACTIVE' ? 'Game in progress' : 'Waiting for host to start' }}
+              </div>
+              <div class="tv-label" style="margin-top:1.5rem">Players</div>
+              <ul class="tv-player-list">
+                @for (p of rt.players$(); track p.playerId) {
+                  <li class="tv-player">
+                    <span class="tv-player-name">{{ p.displayName }}</span>
+                    @if (p.isHost) { <span class="tv-host-badge">host</span> }
+                  </li>
+                }
+              </ul>
+            }
           </div>
-          <div class="tv-right">
-            <div class="tv-label">Players ({{ rt.players$().length }})</div>
-            <ul class="tv-player-list">
-              @for (p of rt.players$(); track p.playerId) {
-                <li class="tv-player">
-                  <span class="tv-player-name">{{ p.displayName }}</span>
-                  @if (p.isHost) { <span class="tv-host-badge">host</span> }
-                  <span class="tv-player-score">{{ p.score }} pts</span>
-                </li>
+
+          <!-- CENTER PANEL: performance state -->
+          <div class="tv-center">
+            @if (rt.currentPerformance$()) {
+              @let perf = rt.currentPerformance$()!;
+
+              @if (perf.state === 'CONFIRMING') {
+                <div class="tv-perf-banner confirming">
+                  <div class="tv-perf-title">Confirming performers…</div>
+                  <div class="tv-countdown">{{ secondsLeft() }}s</div>
+                  <div style="font-size:1.25rem;color:#94a3b8;margin-top:.75rem">
+                    Perform to confirm on your phone
+                  </div>
+                </div>
               }
-            </ul>
+
+              @if (perf.state === 'RUNNING') {
+                <div class="tv-perf-banner running">
+                  <div class="tv-perf-title">Performance in progress</div>
+                  @if (youtubeEmbedUrl()) {
+                    <iframe [src]="youtubeEmbedUrl()!" width="640" height="360"
+                      style="margin-top:1.25rem;border-radius:8px;border:none"
+                      allow="autoplay; encrypted-media" allowfullscreen></iframe>
+                  }
+                  <div style="font-size:1.1rem;color:#86efac;margin-top:1rem">
+                    Judges — rate on your phone!
+                  </div>
+                </div>
+              }
+
+              @if (perf.state === 'LOCKED') {
+                <div class="tv-perf-banner locked">
+                  <div class="tv-perf-title" style="margin-bottom:1.5rem">Results</div>
+                  <div style="display:flex;flex-direction:column;gap:1rem;width:100%;max-width:500px">
+                    @for (slot of perf.slots; track slot.slotId) {
+                      <div class="tv-score-row">
+                        <span class="tv-score-name">{{ slot.currentPlayerName }}</span>
+                        <span class="tv-score-pts">{{ slot.state }}</span>
+                      </div>
+                    }
+                  </div>
+                </div>
+              }
+
+              @if (perf.state === 'SKIPPED') {
+                <div class="tv-perf-banner" style="background:#1e293b">
+                  <div class="tv-perf-title" style="color:#94a3b8">Performance skipped</div>
+                </div>
+              }
+            } @else if (rt.gameState$() === 'ACTIVE') {
+              <div class="tv-center-idle">
+                <div class="tv-title">KaraoGUI</div>
+                <div class="tv-subtitle">Waiting for next performance…</div>
+              </div>
+            } @else {
+              <div class="tv-center-idle">
+                <div class="tv-title">KaraoGUI</div>
+                <div class="tv-subtitle">Scan the join code to play</div>
+              </div>
+            }
+          </div>
+
+          <!-- RIGHT PANEL: live ranking -->
+          <div class="tv-right">
+            <div class="tv-label">Ranking</div>
+            @if (rt.ranking$().length) {
+              <ol class="tv-rank-list">
+                @for (entry of rt.ranking$(); track entry.playerId) {
+                  <li class="tv-rank-entry">
+                    <span class="tv-rank-pos">{{ entry.rank }}</span>
+                    <span class="tv-rank-name">{{ entry.displayName }}</span>
+                    <span class="tv-rank-score">{{ entry.score }} pts</span>
+                  </li>
+                }
+              </ol>
+            } @else {
+              <div style="color:#4b5563;font-size:1rem">No scores yet</div>
+            }
           </div>
         </div>
       }
@@ -71,26 +167,34 @@ import { RealtimeService } from 'realtime';
       color: #9ca3af;
     }
     .tv-content {
-      display: flex;
-      gap: 5rem;
+      display: grid;
+      grid-template-columns: 280px 1fr 260px;
+      gap: 3rem;
       align-items: flex-start;
       width: 100%;
       max-width: 1400px;
     }
-    .tv-left {
-      flex-shrink: 0;
+    .tv-left { flex-shrink: 0; }
+    .tv-center {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 60vh;
     }
+    .tv-center-idle { text-align: center; }
+    .tv-right { flex-shrink: 0; }
+
     .tv-label {
-      font-size: 1rem;
+      font-size: .875rem;
       text-transform: uppercase;
       letter-spacing: .15em;
       color: #6b7280;
       margin-bottom: .5rem;
     }
     .tv-join-code {
-      font-size: 6rem;
+      font-size: 4.5rem;
       font-weight: 900;
-      letter-spacing: .5em;
+      letter-spacing: .4em;
       color: #a5b4fc;
       line-height: 1;
       margin-bottom: 1.5rem;
@@ -101,44 +205,90 @@ import { RealtimeService } from 'realtime';
       border-radius: 2rem;
       background: #1e293b;
       color: #94a3b8;
-      font-size: 1rem;
+      font-size: .9rem;
       margin-bottom: 1.5rem;
     }
-    .tv-state-badge.active {
-      background: #14532d;
-      color: #86efac;
+    .tv-state-badge.active { background: #14532d; color: #86efac; }
+
+    .tv-slot-card {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: .6rem 1rem;
+      border-radius: 8px;
+      background: #1e293b;
     }
-    .tv-right {
-      flex: 1;
-    }
-    .tv-player-list {
-      list-style: none;
-      margin: 0;
-      padding: 0;
-    }
+    .tv-slot-card.confirmed { background: #14532d; }
+    .tv-slot-card.pending { background: #422006; }
+    .tv-slot-name { font-size: 1rem; font-weight: 600; }
+    .tv-slot-badge { font-size: .75rem; color: #94a3b8; }
+
+    .tv-player-list { list-style: none; margin: 0; padding: 0; }
     .tv-player {
       display: flex;
       align-items: center;
-      gap: 1rem;
-      padding: 1rem 0;
+      gap: .75rem;
+      padding: .6rem 0;
       border-bottom: 1px solid #1e293b;
-      font-size: 1.5rem;
+      font-size: 1.1rem;
     }
-    .tv-player-name {
-      flex: 1;
-      font-weight: 600;
+    .tv-player-name { flex: 1; font-weight: 500; }
+    .tv-host-badge { font-size: .75rem; background: #6366f1; color: #fff; border-radius: 4px; padding: .1rem .4rem; }
+
+    .tv-perf-banner {
+      width: 100%;
+      border-radius: 16px;
+      padding: 3rem 2rem;
+      text-align: center;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
     }
-    .tv-host-badge {
-      font-size: .875rem;
-      background: #6366f1;
-      color: #fff;
-      border-radius: 4px;
-      padding: .15rem .5rem;
+    .tv-perf-banner.confirming { background: #1e1b4b; }
+    .tv-perf-banner.running { background: #052e16; }
+    .tv-perf-banner.locked { background: #1e293b; }
+
+    .tv-perf-title {
+      font-size: 2.5rem;
+      font-weight: 800;
+      color: #e2e8f0;
     }
-    .tv-player-score {
+    .tv-countdown {
+      font-size: 6rem;
+      font-weight: 900;
+      color: #f59e0b;
+      line-height: 1;
+      margin-top: .5rem;
+    }
+    .tv-score-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: #0f172a;
+      border-radius: 8px;
+      padding: .75rem 1.25rem;
+    }
+    .tv-score-name { font-size: 1.5rem; font-weight: 600; color: #e2e8f0; }
+    .tv-score-pts { font-size: 2rem; font-weight: 800; color: #a5b4fc; }
+
+    .tv-rank-list { list-style: none; margin: 0; padding: 0; }
+    .tv-rank-entry {
+      display: flex;
+      align-items: center;
+      gap: .75rem;
+      padding: .75rem 0;
+      border-bottom: 1px solid #1e293b;
+      font-size: 1.1rem;
+    }
+    .tv-rank-pos {
+      width: 2rem;
+      text-align: center;
+      font-weight: 700;
+      color: #6366f1;
       font-size: 1.25rem;
-      color: #6b7280;
     }
+    .tv-rank-name { flex: 1; font-weight: 500; }
+    .tv-rank-score { color: #6b7280; font-size: .9rem; }
   `],
 })
 export class TvLobbyComponent implements OnInit, OnDestroy {
@@ -147,10 +297,25 @@ export class TvLobbyComponent implements OnInit, OnDestroy {
   joinCodeDisplay = '';
   loaded = signal(false);
   error = signal('');
+  secondsLeft = signal(0);
+
+  readonly youtubeEmbedUrl = computed((): SafeResourceUrl | null => {
+    const url = this.rt.currentPerformance$()?.youtubeUrl;
+    if (!url) return null;
+    const id = this._extractYoutubeId(url);
+    if (!id) return null;
+    return this.sanitizer.bypassSecurityTrustResourceUrl(`https://www.youtube.com/embed/${id}?autoplay=1`);
+  });
 
   private resnapSub: any = null;
+  private timerHandle: ReturnType<typeof setInterval> | null = null;
 
-  constructor(public rt: RealtimeService, private route: ActivatedRoute, private api: GameApiService) {}
+  constructor(
+    public rt: RealtimeService,
+    private route: ActivatedRoute,
+    private api: GameApiService,
+    private sanitizer: DomSanitizer,
+  ) {}
 
   ngOnInit() {
     this.route.queryParams.subscribe(params => {
@@ -160,10 +325,21 @@ export class TvLobbyComponent implements OnInit, OnDestroy {
         this._loadAndConnect();
       }
     });
+
+    this.timerHandle = setInterval(() => {
+      const perf = this.rt.currentPerformance$();
+      if (perf?.confirmDeadlineAt) {
+        const ms = new Date(perf.confirmDeadlineAt).getTime() - Date.now();
+        this.secondsLeft.set(Math.max(0, Math.ceil(ms / 1000)));
+      } else {
+        this.secondsLeft.set(0);
+      }
+    }, 500);
   }
 
   ngOnDestroy() {
     this.resnapSub?.unsubscribe();
+    if (this.timerHandle) clearInterval(this.timerHandle);
     this.rt.disconnect();
   }
 
@@ -192,5 +368,18 @@ export class TvLobbyComponent implements OnInit, OnDestroy {
         next: (snap) => this.rt.applySnapshot(snap),
       });
     });
+  }
+
+  private _extractYoutubeId(url: string): string | null {
+    const patterns = [
+      /youtu\.be\/([^?&]+)/,
+      /youtube\.com\/watch\?v=([^&]+)/,
+      /youtube\.com\/embed\/([^?&]+)/,
+    ];
+    for (const p of patterns) {
+      const m = url.match(p);
+      if (m) return m[1];
+    }
+    return null;
   }
 }

@@ -1,7 +1,7 @@
 package com.karaogui.backend.game.dto;
 
+import com.karaogui.backend.performance.dto.CurrentPerformanceDto;
 import java.util.List;
-import java.util.Map;
 import java.util.UUID;
 
 public record GameSnapshotDto(
@@ -10,5 +10,6 @@ public record GameSnapshotDto(
         String joinCodeDisplay,
         String state,
         List<PlayerDto> players,
-        Map<String, Object> currentPerformance,
-        RankingPageDto ranking) {}
+        CurrentPerformanceDto currentPerformance,
+        RankingPageDto ranking,
+        boolean queueNonEmpty) {}

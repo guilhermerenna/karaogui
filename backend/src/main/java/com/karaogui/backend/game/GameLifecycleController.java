@@ -28,4 +28,9 @@ class GameLifecycleController {
     GameSnapshotDto start(@PathVariable UUID gameId, PlayerIdentity identity) {
         return gameService.startGame(gameId, identity);
     }
+
+    @PostMapping("/end")
+    void end(@PathVariable UUID gameId, PlayerIdentity identity) {
+        gameService.endGame(gameId, identity);
+    }
 }
