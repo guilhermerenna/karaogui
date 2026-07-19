@@ -20,6 +20,10 @@ management:
 
 # All game-balance / tunable values live under this namespace (see docs/Technical/T08).
 karaogui:
+  youtube:
+    api-key: ${YOUTUBE_API_KEY:}
+    judging-grace: 90s
+    fallback-ceiling: 8m
   timers:
     ready-confirm-window: 30s
     replacement-open-after: 20s

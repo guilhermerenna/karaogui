@@ -66,40 +66,6 @@ import { RealtimeService } from 'realtime';
             </div>
           }
 
-          <!-- LEFT PANEL: join code + slot status -->
-          <div class="tv-left">
-            <div class="tv-label">Join code</div>
-            <div class="tv-join-code">{{ joinCodeDisplay }}</div>
-
-            @if (rt.currentPerformance$()) {
-              @let perf = rt.currentPerformance$()!;
-              <div class="tv-label" style="margin-bottom:.75rem">Performers</div>
-              <div style="display:flex;flex-direction:column;gap:.5rem">
-                @for (slot of perf.slots; track slot.slotId) {
-                  <div class="tv-slot-card"
-                    [class.confirmed]="slot.state === 'CONFIRMED' || slot.state === 'REPLACED'"
-                    [class.pending]="slot.state === 'PENDING'">
-                    <span class="tv-slot-name">{{ slot.currentPlayerName }}</span>
-                    <span class="tv-slot-badge">{{ slot.state }}</span>
-                  </div>
-                }
-              </div>
-            } @else {
-              <div class="tv-state-badge" [class.active]="rt.gameState$() === 'ACTIVE'">
-                {{ rt.gameState$() === 'ACTIVE' ? 'Game in progress' : 'Waiting for host to start' }}
-              </div>
-              <div class="tv-label" style="margin-top:1.5rem">Players</div>
-              <ul class="tv-player-list">
-                @for (p of rt.players$(); track p.playerId) {
-                  <li class="tv-player">
-                    <span class="tv-player-name">{{ p.displayName }}</span>
-                    @if (p.isHost) { <span class="tv-host-badge">host</span> }
-                  </li>
-                }
-              </ul>
-            }
-          </div>
-
           <!-- CENTER PANEL: performance state -->
           <div class="tv-center">
             @if (rt.currentPerformance$()) {
@@ -119,8 +85,8 @@ import { RealtimeService } from 'realtime';
                 <div class="tv-perf-banner running">
                   <div class="tv-perf-title">Performance in progress</div>
                   @if (youtubeEmbedUrl()) {
-                    <iframe [src]="youtubeEmbedUrl()!" width="640" height="360"
-                      style="margin-top:1.25rem;border-radius:8px;border:none"
+                    <iframe [src]="youtubeEmbedUrl()!"
+                      style="margin-top:1.25rem;border-radius:8px;border:none;width:100%;aspect-ratio:16/9"
                       allow="autoplay; encrypted-media" allowfullscreen></iframe>
                   }
                   <div style="font-size:1.1rem;color:#86efac;margin-top:1rem">
@@ -161,8 +127,39 @@ import { RealtimeService } from 'realtime';
             }
           </div>
 
-          <!-- RIGHT PANEL: live ranking + comments -->
+          <!-- RIGHT PANEL: performers (top) → ranking + comments (middle) → join code (bottom) -->
           <div class="tv-right">
+
+            <!-- TOP: performers during a performance, otherwise players list -->
+            @if (rt.currentPerformance$()) {
+              @let perf = rt.currentPerformance$()!;
+              <div class="tv-label" style="margin-bottom:.75rem">Performers</div>
+              <div style="display:flex;flex-direction:column;gap:.5rem;margin-bottom:1.5rem">
+                @for (slot of perf.slots; track slot.slotId) {
+                  <div class="tv-slot-card"
+                    [class.confirmed]="slot.state === 'CONFIRMED' || slot.state === 'REPLACED'"
+                    [class.pending]="slot.state === 'PENDING'">
+                    <span class="tv-slot-name">{{ slot.currentPlayerName }}</span>
+                    <span class="tv-slot-badge">{{ slot.state }}</span>
+                  </div>
+                }
+              </div>
+            } @else {
+              <div class="tv-state-badge" [class.active]="rt.gameState$() === 'ACTIVE'" style="margin-bottom:1rem">
+                {{ rt.gameState$() === 'ACTIVE' ? 'Game in progress' : 'Waiting for host to start' }}
+              </div>
+              <div class="tv-label">Players</div>
+              <ul class="tv-player-list" style="margin-bottom:1.5rem">
+                @for (p of rt.players$(); track p.playerId) {
+                  <li class="tv-player">
+                    <span class="tv-player-name">{{ p.displayName }}</span>
+                    @if (p.isHost) { <span class="tv-host-badge">host</span> }
+                  </li>
+                }
+              </ul>
+            }
+
+            <!-- MIDDLE: ranking + comments -->
             <div class="tv-label">Ranking</div>
             @if (rt.ranking$().length) {
               <ol class="tv-rank-list">
@@ -175,7 +172,7 @@ import { RealtimeService } from 'realtime';
                 }
               </ol>
             } @else {
-              <div style="color:#4b5563;font-size:1rem">No scores yet</div>
+              <div style="color:#4b5563;font-size:1rem;margin-bottom:1rem">No scores yet</div>
             }
 
             @if (rt.comments$().length) {
@@ -192,6 +189,12 @@ import { RealtimeService } from 'realtime';
                 }
               </div>
             }
+
+            <!-- BOTTOM: join code -->
+            <div style="margin-top:auto;padding-top:1.5rem">
+              <div class="tv-label">Join code</div>
+              <div class="tv-join-code">{{ joinCodeDisplay }}</div>
+            </div>
           </div>
         </div>
       }
@@ -220,13 +223,12 @@ import { RealtimeService } from 'realtime';
     }
     .tv-content {
       display: grid;
-      grid-template-columns: 320px 1fr 260px;
+      grid-template-columns: 1fr 300px;
       gap: 3rem;
-      align-items: flex-start;
+      align-items: stretch;
       width: 100%;
       max-width: 1400px;
     }
-    .tv-left { flex-shrink: 0; }
     .tv-center {
       display: flex;
       align-items: center;
@@ -234,7 +236,11 @@ import { RealtimeService } from 'realtime';
       min-height: 60vh;
     }
     .tv-center-idle { text-align: center; }
-    .tv-right { flex-shrink: 0; }
+    .tv-right {
+      display: flex;
+      flex-direction: column;
+      flex-shrink: 0;
+    }
 
     .tv-label {
       font-size: .875rem;

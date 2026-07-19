@@ -9,6 +9,7 @@ import {
 } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { HttpErrorResponse } from '@angular/common/http';
+import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
 import { Router } from '@angular/router';
 import { GameApiService } from 'api';
 import { RealtimeService } from 'realtime';
@@ -93,9 +94,6 @@ const CRITERIA = ['PITCH', 'ENERGY', 'STAGE_PRESENCE'] as const;
                 <div style="font-size:.85rem;color:#555;margin-bottom:.75rem">
                   Time left: {{ secondsLeft() }}s
                 </div>
-                <div style="font-size:.85rem;color:#555;margin-bottom:.75rem">
-                  Song: <a [href]="perf.youtubeUrl!" target="_blank">Open YouTube</a>
-                </div>
                 <button class="btn btn-primary" [disabled]="confirming()" (click)="confirmSlot()">
                   {{ confirming() ? 'Confirming…' : 'Confirm' }}
                 </button>
@@ -106,10 +104,7 @@ const CRITERIA = ['PITCH', 'ENERGY', 'STAGE_PRESENCE'] as const;
             <!-- PERFORMER — CONFIRMED or RUNNING -->
             @if (mySlot() && (mySlot()!.state === 'CONFIRMED' || mySlot()!.state === 'REPLACED') && perf.state === 'RUNNING') {
               <div style="background:#dcfce7;border-radius:8px;padding:1.25rem;margin-bottom:1rem;text-align:center">
-                <div style="font-size:1.5rem;margin-bottom:.5rem">You're performing!</div>
-                <a [href]="perf.youtubeUrl!" target="_blank" class="btn btn-primary" style="display:inline-block;width:auto">
-                  Open Song
-                </a>
+                <div style="font-size:1.5rem;">You're performing!</div>
               </div>
             }
 
@@ -243,12 +238,33 @@ const CRITERIA = ['PITCH', 'ENERGY', 'STAGE_PRESENCE'] as const;
                 }
               </div>
 
-              <button class="btn btn-primary" [disabled]="queuing() || !queueUrl" (click)="queuePerformance()">
-                {{ queuing() ? 'Queuing…' : 'Queue Karaoke' }}
+              <button class="btn btn-primary" [disabled]="queuing() || !queueUrl" (click)="showPreview()">
+                Preview &amp; Queue
               </button>
               @if (queueError()) { <p class="error-msg" style="margin-top:.5rem">{{ queueError() }}</p> }
             </div>
           </details>
+
+          <!-- YOUTUBE PREVIEW -->
+          @if (previewEmbedUrl()) {
+            <div style="position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:200;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:1.5rem">
+              <div style="background:#fff;border-radius:12px;padding:1.25rem;width:100%;max-width:480px">
+                <div style="font-weight:600;margin-bottom:.75rem">Preview</div>
+                <div style="position:relative;padding-bottom:56.25%;height:0;overflow:hidden;border-radius:8px;margin-bottom:1rem">
+                  <iframe [src]="previewEmbedUrl()!" style="position:absolute;inset:0;width:100%;height:100%;border:none"
+                    allow="autoplay; encrypted-media" allowfullscreen></iframe>
+                </div>
+                <p style="font-size:.8rem;color:#6b7280;margin:0 0 1rem">Does the video load correctly? If it has loaded and has started playing, confirm to queue it.</p>
+                <div style="display:flex;gap:.75rem">
+                  <button class="btn btn-primary" style="flex:1" [disabled]="queuing()" (click)="confirmQueue()">
+                    {{ queuing() ? 'Queuing…' : 'Confirm' }}
+                  </button>
+                  <button class="btn" style="flex:1" (click)="cancelPreview()">Cancel</button>
+                </div>
+                @if (queueError()) { <p class="error-msg" style="margin-top:.5rem">{{ queueError() }}</p> }
+              </div>
+            </div>
+          }
 
         }
       </div>
@@ -282,6 +298,7 @@ export class PerformanceComponent implements OnInit, OnDestroy {
   slotCount = signal(2);
   queuing = signal(false);
   queueError = signal('');
+  previewEmbedUrl = signal<SafeResourceUrl | null>(null);
 
   confirming = signal(false);
   volunteering = signal(false);
@@ -334,7 +351,7 @@ export class PerformanceComponent implements OnInit, OnDestroy {
     return perf.slots.some(s => s.state === 'PENDING');
   });
 
-  constructor(public rt: RealtimeService, private api: GameApiService, public router: Router) {
+  constructor(public rt: RealtimeService, private api: GameApiService, public router: Router, private sanitizer: DomSanitizer) {
     effect(() => {
       if (this.rt.gameEnded$()) {
         this.router.navigate(['/results']);
@@ -353,6 +370,10 @@ export class PerformanceComponent implements OnInit, OnDestroy {
     this.api.getSnapshot(this.session.gameId, this.session.token).subscribe({
       next: (snap) => {
         this.rt.applySnapshot(snap);
+        if (snap.state !== 'ACTIVE' && snap.state !== 'OVER') {
+          this.router.navigate(['/lobby']);
+          return;
+        }
         if (!this.rt.client) {
           this.rt.connect(this.session!.gameId, this.session!.token, 'PHONE');
         }
@@ -399,7 +420,25 @@ export class PerformanceComponent implements OnInit, OnDestroy {
     });
   }
 
-  queuePerformance() {
+  showPreview() {
+    if (!this.queueUrl) return;
+    const id = this._extractYoutubeId(this.queueUrl);
+    if (!id) {
+      this.queueError.set('Could not parse YouTube URL. Please check the link.');
+      return;
+    }
+    this.queueError.set('');
+    this.previewEmbedUrl.set(
+      this.sanitizer.bypassSecurityTrustResourceUrl(`https://www.youtube.com/embed/${id}?autoplay=1`)
+    );
+  }
+
+  cancelPreview() {
+    this.previewEmbedUrl.set(null);
+    this.queueError.set('');
+  }
+
+  confirmQueue() {
     if (!this.session || !this.queueUrl) return;
     this.queuing.set(true);
     this.queueError.set('');
@@ -411,6 +450,7 @@ export class PerformanceComponent implements OnInit, OnDestroy {
     }).subscribe({
       next: () => {
         this.queuing.set(false);
+        this.previewEmbedUrl.set(null);
         this.queueUrl = '';
         this.selectedPerformers.set(new Set());
         this.slotCount.set(2);
@@ -420,6 +460,19 @@ export class PerformanceComponent implements OnInit, OnDestroy {
         this.queueError.set(err.error?.error?.message ?? 'Could not queue performance.');
       },
     });
+  }
+
+  private _extractYoutubeId(url: string): string | null {
+    const patterns = [
+      /youtu\.be\/([^?&]+)/,
+      /youtube\.com\/watch\?v=([^&]+)/,
+      /youtube\.com\/embed\/([^?&]+)/,
+    ];
+    for (const p of patterns) {
+      const m = url.match(p);
+      if (m) return m[1];
+    }
+    return null;
   }
 
   confirmSlot() {
