@@ -106,6 +106,16 @@ A pending performance's place in line.
 - Ordered; physical challenges are auto-appended on a recurring cadence in a fixed
   cyclic order.
 
+### Video (Video Library)
+A reusable YouTube video in the **global, shared** library, so a song imported once can
+be found and queued again — in any game — without re-pasting the URL.
+- Stores the video name and thumbnail (auto-filled from YouTube) plus optional
+  song title and artist (entered by the importer), and the duration used to drive the
+  judge grace-period countdown.
+- **Any player** can import a video; **only the host** can remove one.
+- Queuing a karaoke performance searches this library and copies the chosen video's
+  stored duration into the performance.
+
 ## Relationships at a glance
 
 ```

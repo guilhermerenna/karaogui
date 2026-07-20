@@ -114,6 +114,57 @@ class GameLobbyIntegrationTest {
     }
 
     @Test
+    void rejoinByName_resumesExistingPlayer() throws Exception {
+        MvcResult createResult = mvc.perform(post("/api/games")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                        {"host": {"displayName": "Host"}}
+                        """))
+                .andExpect(status().isCreated()).andReturn();
+        JsonNode createBody = mapper.readTree(createResult.getResponse().getContentAsString());
+        String gameId = createBody.get("gameId").asText();
+        String joinCode = createBody.get("joinCode").asText();
+        String hostToken = createBody.get("sessionToken").asText();
+
+        // Bob joins
+        MvcResult firstJoin = mvc.perform(post("/api/games/join")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                        {"joinCode": "%s", "player": {"displayName": "Bob"}}
+                        """.formatted(joinCode)))
+                .andExpect(status().isCreated()).andReturn();
+        JsonNode firstBody = mapper.readTree(firstJoin.getResponse().getContentAsString());
+        String bobPlayerId = firstBody.get("you").get("playerId").asText();
+        String firstToken = firstBody.get("sessionToken").asText();
+
+        // Bob rejoins with same name but different case + surrounding whitespace
+        MvcResult secondJoin = mvc.perform(post("/api/games/join")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                        {"joinCode": "%s", "player": {"displayName": "  bOb  "}}
+                        """.formatted(joinCode)))
+                .andExpect(status().isCreated()).andReturn();
+        JsonNode secondBody = mapper.readTree(secondJoin.getResponse().getContentAsString());
+        String rejoinPlayerId = secondBody.get("you").get("playerId").asText();
+        String secondToken = secondBody.get("sessionToken").asText();
+
+        // Same player identity, fresh token
+        org.assertj.core.api.Assertions.assertThat(rejoinPlayerId).isEqualTo(bobPlayerId);
+        org.assertj.core.api.Assertions.assertThat(secondToken).isNotEqualTo(firstToken);
+
+        // Roster still has exactly 2 players (Host + Bob), no duplicate
+        mvc.perform(get("/api/games/" + gameId + "/players")
+                .header("Authorization", "Bearer " + hostToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(2));
+
+        // The fresh token works
+        mvc.perform(get("/api/games/" + gameId + "/players/me")
+                .header("Authorization", "Bearer " + secondToken))
+                .andExpect(status().isOk());
+    }
+
+    @Test
     void joinWithBadCode_returns404() throws Exception {
         mvc.perform(post("/api/games/join")
                 .contentType(MediaType.APPLICATION_JSON)

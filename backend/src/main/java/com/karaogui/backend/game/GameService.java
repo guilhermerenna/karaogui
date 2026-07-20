@@ -26,6 +26,7 @@ import com.karaogui.backend.performance.dto.CurrentPerformanceDto;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -134,25 +135,43 @@ public class GameService {
         }
 
         Instant now = Instant.now();
-        UUID playerId = UUID.randomUUID();
-        Player player = new Player(playerId, game.getId(), req.player().displayName(), false, now);
-        playerRepo.save(player);
+        String requestedName = req.player().displayName().trim();
+
+        // Rejoin-by-name: a returning player who re-enters the same name resumes their
+        // existing identity (playerId + score) instead of creating a duplicate roster entry.
+        // Robust identity (heartbeat/OAuth2) is future work; for a party game we trust the name.
+        Optional<Player> existing = playerRepo.findByGameIdAndDisplayNameIgnoreCase(game.getId(), requestedName);
+
+        Player player = existing.orElse(null);
+        boolean isRejoin = player != null;
+        if (!isRejoin) {
+            player = new Player(UUID.randomUUID(), game.getId(), requestedName, false, now);
+            playerRepo.save(player);
+        }
+        UUID playerId = player.getId();
 
         String rawToken = UUID.randomUUID().toString();
         String tokenHash = TokenAuthFilter.sha256Hex(rawToken);
+        if (isRejoin) {
+            // player_session enforces one session per player; drop the stale token first.
+            sessionRepo.deleteByPlayerId(playerId);
+            sessionRepo.flush();
+        }
         sessionRepo.save(new PlayerSession(UUID.randomUUID(), playerId, game.getId(), tokenHash, now));
 
-        long seq = game.incrementAndGetSeq();
-        gameRepo.save(game);
-        eventPublisher.publishEvent(
-                new GameDomainEvent.PlayerJoined(this, game.getId(), playerId, player.getDisplayName(), seq));
+        if (!isRejoin) {
+            long seq = game.incrementAndGetSeq();
+            gameRepo.save(game);
+            eventPublisher.publishEvent(
+                    new GameDomainEvent.PlayerJoined(this, game.getId(), playerId, player.getDisplayName(), seq));
+        }
 
         return new CreateGameResponse(
                 game.getId(),
                 game.getJoinCode(),
                 JoinCodeGenerator.toDisplayFormat(game.getJoinCode()),
                 game.getState().name(),
-                new CreateGameResponse.PlayerInfo(playerId, player.getDisplayName(), false),
+                new CreateGameResponse.PlayerInfo(playerId, player.getDisplayName(), player.isHost()),
                 rawToken,
                 null);
     }

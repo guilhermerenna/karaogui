@@ -54,7 +54,7 @@ public class YoutubeMetadataClient {
         }
         try {
             VideoListResponse resp = restClient.get()
-                    .uri(ENDPOINT + "?part=contentDetails,status&id={id}&key={key}", videoId, apiKey)
+                    .uri(ENDPOINT + "?part=contentDetails,status,snippet&id={id}&key={key}", videoId, apiKey)
                     .retrieve()
                     .body(VideoListResponse.class);
             if (resp == null || resp.items() == null || resp.items().isEmpty()) {
@@ -69,14 +69,30 @@ public class YoutubeMetadataClient {
             Long seconds = item.contentDetails() != null
                     ? parseDuration(item.contentDetails().duration())
                     : null;
-            return LookupResult.ok(new VideoMetadata(seconds, true));
+            String title = item.snippet() != null ? item.snippet().title() : null;
+            String thumbnailUrl = pickThumbnail(item.snippet());
+            return LookupResult.ok(new VideoMetadata(seconds, true, title, thumbnailUrl));
         } catch (Exception e) {
             log.warn("YouTube metadata lookup failed for id={}: {}", videoId, e.getMessage());
             return LookupResult.unavailable();
         }
     }
 
-    static String extractId(String url) {
+    private static String pickThumbnail(Snippet snippet) {
+        if (snippet == null || snippet.thumbnails() == null) {
+            return null;
+        }
+        Thumbnails t = snippet.thumbnails();
+        if (t.high() != null && t.high().url() != null) {
+            return t.high().url();
+        }
+        if (t.medium() != null && t.medium().url() != null) {
+            return t.medium().url();
+        }
+        return t.defaultThumb() != null ? t.defaultThumb().url() : null;
+    }
+
+    public static String extractId(String url) {
         if (url == null) {
             return null;
         }
@@ -125,13 +141,22 @@ public class YoutubeMetadataClient {
         }
     }
 
-    public record VideoMetadata(Long durationSeconds, boolean embeddable) {}
+    public record VideoMetadata(Long durationSeconds, boolean embeddable, String title, String thumbnailUrl) {}
 
     record VideoListResponse(List<Item> items) {}
 
-    record Item(ContentDetails contentDetails, VideoStatus status) {}
+    record Item(ContentDetails contentDetails, VideoStatus status, Snippet snippet) {}
 
     record ContentDetails(String duration) {}
 
     record VideoStatus(Boolean embeddable) {}
+
+    record Snippet(String title, Thumbnails thumbnails) {}
+
+    record Thumbnails(
+            @com.fasterxml.jackson.annotation.JsonProperty("default") Thumbnail defaultThumb,
+            Thumbnail medium,
+            Thumbnail high) {}
+
+    record Thumbnail(String url) {}
 }

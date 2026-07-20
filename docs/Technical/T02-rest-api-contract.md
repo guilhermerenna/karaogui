@@ -252,6 +252,13 @@ Response `201`: the created performance with its `gameLocalNumber`, `queuePositi
 `state=QUEUED`, and the resolved performer slots (RANDOM slots are filled at
 announcement time by the engine, not here).
 
+**Queuing from the video library (Karaoke).** The request may carry a `videoId`
+referencing a `video` library entry instead of a raw `youtubeUrl`. When `videoId` is
+present the engine reuses the stored URL **and** the stored `durationSeconds`, skipping
+the YouTube Data API round-trip entirely. If neither `videoId` nor `youtubeUrl` is
+supplied ⇒ `409` `NO_VIDEO`. The search-first phone UI (T06) always sends `videoId`;
+the raw `youtubeUrl` path is retained for compatibility.
+
 **YouTube link validation (Karaoke/Dance).** Before queueing, the engine performs a
 best-effort YouTube Data API lookup on `content.youtubeUrl` (T05 §11). A **definite
 bad-video verdict** rejects the submission with `409` and a reason code; a mere *failure
@@ -271,6 +278,43 @@ message (T06).
 
 #### `GET /api/games/{gameId}/performances/{performanceId}` — performance detail
 Role-filtered: trivia `answer`s included **only** if the caller is a judge on it.
+
+### 4.4a Video library
+A **global, shared** library of previously-imported YouTube videos (T01 §2.16). These
+endpoints live under `/api/videos` (not game-scoped in the path) but still require a
+valid player session token; the token's game context is used for authorization.
+
+#### `GET /api/videos?q=&page=0` — search the library
+Case-insensitive substring match across `videoName`, `songTitle`, `artist`; blank `q`
+returns all, newest-first. Page size **6**. Response `200`:
+```json
+{
+  "content": [
+    { "videoId": "...", "youtubeUrl": "...", "videoName": "...", "thumbnailUrl": "...",
+      "songTitle": "Bohemian Rhapsody", "artist": "Queen", "durationSeconds": 355 }
+  ],
+  "hasMore": true
+}
+```
+Blank/null `videoName`/`songTitle`/`artist` are returned as-is; the phone UI omits empty
+lines (T06).
+
+#### `POST /api/videos` — import a video *(any player)*
+```json
+{ "youtubeUrl": "https://youtu.be/...", "songTitle": "…", "artist": "…" }
+```
+`songTitle`/`artist` optional. `videoName`, `thumbnailUrl`, `durationSeconds` are
+auto-filled from the YouTube Data API `snippet`+`contentDetails` (soft-fail to nulls if
+the API is unreachable). **Idempotent by YouTube id:** re-importing an existing URL
+returns the existing row (updating only newly-provided `songTitle`/`artist`). `409`
+`NOT_A_YOUTUBE_VIDEO` if the URL has no parseable id; the same `VIDEO_NOT_FOUND` /
+`VIDEO_NOT_EMBEDDABLE` verdicts as above apply. Response `201`: the `VideoDto`.
+
+#### `DELETE /api/videos/{videoId}` — remove from library *(host only)*
+`204` on success; `403` `FORBIDDEN` if the caller is not the host of their game; `404`
+if the video does not exist.
+
+
 
 ### 4.5 Performer confirmation & volunteering
 

@@ -91,9 +91,31 @@ export interface ScoreResultDto {
 
 export interface QueuePerformanceRequest {
   type: string;
-  youtubeUrl: string;
+  videoId?: string;
+  youtubeUrl?: string;
   performerPlayerIds: string[];
   slotCount: number;
+}
+
+export interface VideoDto {
+  videoId: string;
+  youtubeUrl: string;
+  videoName?: string | null;
+  thumbnailUrl?: string | null;
+  songTitle?: string | null;
+  artist?: string | null;
+  durationSeconds?: number | null;
+}
+
+export interface VideoSearchResponse {
+  content: VideoDto[];
+  hasMore: boolean;
+}
+
+export interface ImportVideoRequest {
+  youtubeUrl: string;
+  songTitle?: string;
+  artist?: string;
 }
 
 export interface EvaluateRequest {

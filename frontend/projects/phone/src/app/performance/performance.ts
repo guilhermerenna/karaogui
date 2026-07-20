@@ -13,7 +13,7 @@ import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
 import { Router } from '@angular/router';
 import { GameApiService } from 'api';
 import { RealtimeService } from 'realtime';
-import type { CommentDto, CriterionScore, SessionInfo } from 'contracts';
+import type { CommentDto, CriterionScore, SessionInfo, VideoDto } from 'contracts';
 
 const CRITERIA = ['PITCH', 'ENERGY', 'STAGE_PRESENCE'] as const;
 
@@ -215,8 +215,52 @@ const CRITERIA = ['PITCH', 'ENERGY', 'STAGE_PRESENCE'] as const;
           <details [attr.open]="rt.currentPerformance$() === null ? '' : null">
             <summary style="cursor:pointer;font-weight:600;margin-bottom:.75rem">Queue next performance</summary>
             <div style="margin-top:.75rem">
-              <label style="display:block;font-size:.85rem;margin-bottom:.25rem">YouTube URL</label>
-              <input type="url" [(ngModel)]="queueUrl" placeholder="https://youtu.be/..." class="input" style="margin-bottom:.75rem" />
+
+              <!-- SEARCH BAR -->
+              <label style="display:block;font-size:.85rem;margin-bottom:.25rem">Search the video library</label>
+              <input type="search" [ngModel]="searchQuery()" (ngModelChange)="onSearchInput($event)"
+                placeholder="Song, artist or video name…" class="input" style="margin-bottom:.75rem" />
+
+              <!-- RESULTS -->
+              @if (searching()) {
+                <div style="text-align:center;color:#888;padding:1rem 0;font-size:.85rem">Searching…</div>
+              } @else if (videoResults().length === 0) {
+                <div style="text-align:center;color:#888;padding:1rem 0;font-size:.85rem">
+                  No videos yet. Import one below.
+                </div>
+              } @else {
+                <div style="display:flex;flex-direction:column;gap:.5rem;margin-bottom:.5rem">
+                  @for (v of videoResults(); track v.videoId) {
+                    <div (click)="selectVideo(v)"
+                      style="display:flex;gap:.6rem;align-items:center;padding:.5rem;border-radius:8px;cursor:pointer;border:2px solid transparent"
+                      [style.border-color]="selectedVideo()?.videoId === v.videoId ? '#6366f1' : 'transparent'"
+                      [style.background]="selectedVideo()?.videoId === v.videoId ? '#eef2ff' : '#f9fafb'">
+                      @if (v.thumbnailUrl) {
+                        <img [src]="v.thumbnailUrl" alt="" style="width:64px;height:48px;object-fit:cover;border-radius:4px;flex-shrink:0" />
+                      } @else {
+                        <div style="width:64px;height:48px;border-radius:4px;background:#e5e7eb;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:1.2rem">🎵</div>
+                      }
+                      <div style="flex:1;min-width:0">
+                        @if (v.songTitle) { <div style="font-weight:600;font-size:.85rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ v.songTitle }}</div> }
+                        @if (v.artist) { <div style="font-size:.8rem;color:#555;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ v.artist }}</div> }
+                        @if (v.videoName) { <div style="font-size:.75rem;color:#9ca3af;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ v.videoName }}</div> }
+                      </div>
+                      @if (session.isHost) {
+                        <button (click)="deleteVideo(v, $event)" [disabled]="deletingId() === v.videoId"
+                          style="background:none;border:none;cursor:pointer;font-size:1.1rem;padding:.25rem;flex-shrink:0" title="Remove from library">🗑️</button>
+                      }
+                    </div>
+                  }
+                </div>
+                <!-- PAGER -->
+                @if (videoPage() > 0 || videoHasMore()) {
+                  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.75rem">
+                    <button class="btn" style="font-size:.8rem" [disabled]="videoPage() === 0 || searching()" (click)="prevVideoPage()">‹ Prev</button>
+                    <span style="font-size:.8rem;color:#888">Page {{ videoPage() + 1 }}</span>
+                    <button class="btn" style="font-size:.8rem" [disabled]="!videoHasMore() || searching()" (click)="nextVideoPage()">Next ›</button>
+                  </div>
+                }
+              }
 
               <label style="display:block;font-size:.85rem;margin-bottom:.25rem">Select performers</label>
               <div style="margin-bottom:.5rem">
@@ -240,30 +284,54 @@ const CRITERIA = ['PITCH', 'ENERGY', 'STAGE_PRESENCE'] as const;
                 }
               </div>
 
-              <button class="btn btn-primary" [disabled]="queuing() || !queueUrl" (click)="showPreview()">
-                Preview &amp; Queue
+              <button class="btn btn-primary" style="width:100%;margin-bottom:.5rem"
+                [disabled]="queuing() || !selectedVideo()" (click)="confirmQueue()">
+                {{ queuing() ? 'Queuing…' : (selectedVideo() ? 'Queue selected video' : 'Select a video to queue') }}
               </button>
-              @if (queueError()) { <p class="error-msg" style="margin-top:.5rem">{{ queueError() }}</p> }
+              @if (queueError()) { <p class="error-msg" style="margin-bottom:.5rem">{{ queueError() }}</p> }
+
+              <button class="btn" style="width:100%" (click)="openImport()">
+                Import video to Library
+              </button>
             </div>
           </details>
 
-          <!-- YOUTUBE PREVIEW -->
-          @if (previewEmbedUrl()) {
+          <!-- IMPORT TO LIBRARY MODAL -->
+          @if (importOpen()) {
             <div style="position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:200;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:1.5rem">
-              <div style="background:#fff;border-radius:12px;padding:1.25rem;width:100%;max-width:480px">
-                <div style="font-weight:600;margin-bottom:.75rem">Preview</div>
-                <div style="position:relative;padding-bottom:56.25%;height:0;overflow:hidden;border-radius:8px;margin-bottom:1rem">
-                  <iframe [src]="previewEmbedUrl()!" style="position:absolute;inset:0;width:100%;height:100%;border:none"
-                    allow="autoplay; encrypted-media" allowfullscreen></iframe>
-                </div>
-                <p style="font-size:.8rem;color:#6b7280;margin:0 0 1rem">Does the video load correctly? If it has loaded and has started playing, confirm to queue it.</p>
-                <div style="display:flex;gap:.75rem">
-                  <button class="btn btn-primary" style="flex:1" [disabled]="queuing()" (click)="confirmQueue()">
-                    {{ queuing() ? 'Queuing…' : 'Confirm' }}
-                  </button>
-                  <button class="btn" style="flex:1" (click)="cancelPreview()">Cancel</button>
-                </div>
-                @if (queueError()) { <p class="error-msg" style="margin-top:.5rem">{{ queueError() }}</p> }
+              <div style="background:#fff;border-radius:12px;padding:1.25rem;width:100%;max-width:480px;max-height:90vh;overflow-y:auto">
+                <div style="font-weight:600;margin-bottom:.75rem">Import video to Library</div>
+
+                <label style="display:block;font-size:.85rem;margin-bottom:.25rem">YouTube URL</label>
+                <input type="url" [(ngModel)]="importUrl" placeholder="https://youtu.be/..." class="input" style="margin-bottom:.75rem" />
+
+                <label style="display:block;font-size:.85rem;margin-bottom:.25rem">Song title (optional)</label>
+                <input type="text" [(ngModel)]="importSongTitle" placeholder="e.g. Bohemian Rhapsody" class="input" style="margin-bottom:.75rem" />
+
+                <label style="display:block;font-size:.85rem;margin-bottom:.25rem">Artist (optional)</label>
+                <input type="text" [(ngModel)]="importArtist" placeholder="e.g. Queen" class="input" style="margin-bottom:.75rem" />
+
+                @if (importEmbedUrl()) {
+                  <div style="position:relative;padding-bottom:56.25%;height:0;overflow:hidden;border-radius:8px;margin-bottom:1rem">
+                    <iframe [src]="importEmbedUrl()!" style="position:absolute;inset:0;width:100%;height:100%;border:none"
+                      allow="autoplay; encrypted-media" allowfullscreen></iframe>
+                  </div>
+                  <p style="font-size:.8rem;color:#6b7280;margin:0 0 1rem">Does the video load correctly? If so, confirm to add it to the library.</p>
+                  <div style="display:flex;gap:.75rem">
+                    <button class="btn btn-primary" style="flex:1" [disabled]="importing()" (click)="confirmImport()">
+                      {{ importing() ? 'Importing…' : 'Confirm import' }}
+                    </button>
+                    <button class="btn" style="flex:1" (click)="closeImport()">Cancel</button>
+                  </div>
+                } @else {
+                  <div style="display:flex;gap:.75rem">
+                    <button class="btn btn-primary" style="flex:1" [disabled]="!importUrl" (click)="previewImport()">
+                      Preview
+                    </button>
+                    <button class="btn" style="flex:1" (click)="closeImport()">Cancel</button>
+                  </div>
+                }
+                @if (importError()) { <p class="error-msg" style="margin-top:.5rem">{{ importError() }}</p> }
               </div>
             </div>
           }
@@ -295,14 +363,31 @@ export class PerformanceComponent implements OnInit, OnDestroy {
   session: SessionInfo | null = null;
   readonly criteria = CRITERIA;
 
-  queueUrl = '';
   selectedPerformers = signal<Set<string>>(new Set());
   slotCount = signal(1);
   // Reserve at least 1 judge and 1 audience member: performers <= players - 2.
   readonly maxPerformers = computed(() => Math.max(1, this.rt.players$().length - 2));
   queuing = signal(false);
   queueError = signal('');
-  previewEmbedUrl = signal<SafeResourceUrl | null>(null);
+
+  // Video library search
+  searchQuery = signal('');
+  videoResults = signal<VideoDto[]>([]);
+  videoPage = signal(0);
+  videoHasMore = signal(false);
+  searching = signal(false);
+  selectedVideo = signal<VideoDto | null>(null);
+  deletingId = signal<string | null>(null);
+  private searchDebounce: ReturnType<typeof setTimeout> | null = null;
+
+  // Import-to-library modal
+  importOpen = signal(false);
+  importUrl = '';
+  importSongTitle = '';
+  importArtist = '';
+  importEmbedUrl = signal<SafeResourceUrl | null>(null);
+  importing = signal(false);
+  importError = signal('');
 
   confirming = signal(false);
   volunteering = signal(false);
@@ -412,6 +497,7 @@ export class PerformanceComponent implements OnInit, OnDestroy {
           this.rt.connect(this.session!.gameId, this.session!.token, 'PHONE');
         }
         this._loadComments(0);
+        this.runSearch();
       },
       error: () => this.router.navigate(['/']),
     });
@@ -436,6 +522,7 @@ export class PerformanceComponent implements OnInit, OnDestroy {
     this.resnapSub?.unsubscribe();
     if (this.timerHandle) clearInterval(this.timerHandle);
     if (this.evalDismissHandle) clearTimeout(this.evalDismissHandle);
+    if (this.searchDebounce) clearTimeout(this.searchDebounce);
   }
 
   setSlotCount(n: number) {
@@ -456,38 +543,131 @@ export class PerformanceComponent implements OnInit, OnDestroy {
     });
   }
 
-  showPreview() {
-    if (!this.queueUrl) return;
-    const id = this._extractYoutubeId(this.queueUrl);
+  onSearchInput(value: string) {
+    this.searchQuery.set(value);
+    this.videoPage.set(0);
+    if (this.searchDebounce) clearTimeout(this.searchDebounce);
+    this.searchDebounce = setTimeout(() => this.runSearch(), 300);
+  }
+
+  runSearch() {
+    if (!this.session) return;
+    this.searching.set(true);
+    this.api.searchVideos(this.session.token, this.searchQuery().trim(), this.videoPage()).subscribe({
+      next: (res) => {
+        this.searching.set(false);
+        this.videoResults.set(res.content);
+        this.videoHasMore.set(res.hasMore);
+        // Keep a selection only if it's still visible in the results.
+        const sel = this.selectedVideo();
+        if (sel && !res.content.some(v => v.videoId === sel.videoId)) {
+          this.selectedVideo.set(null);
+        }
+      },
+      error: () => {
+        this.searching.set(false);
+        this.videoResults.set([]);
+        this.videoHasMore.set(false);
+      },
+    });
+  }
+
+  nextVideoPage() {
+    if (!this.videoHasMore()) return;
+    this.videoPage.update(p => p + 1);
+    this.runSearch();
+  }
+
+  prevVideoPage() {
+    if (this.videoPage() === 0) return;
+    this.videoPage.update(p => p - 1);
+    this.runSearch();
+  }
+
+  selectVideo(v: VideoDto) {
+    this.selectedVideo.set(this.selectedVideo()?.videoId === v.videoId ? null : v);
+  }
+
+  deleteVideo(v: VideoDto, event: Event) {
+    event.stopPropagation();
+    if (!this.session) return;
+    this.deletingId.set(v.videoId);
+    this.api.deleteVideo(this.session.token, v.videoId).subscribe({
+      next: () => {
+        this.deletingId.set(null);
+        if (this.selectedVideo()?.videoId === v.videoId) this.selectedVideo.set(null);
+        this.runSearch();
+      },
+      error: () => this.deletingId.set(null),
+    });
+  }
+
+  openImport() {
+    this.importOpen.set(true);
+    this.importError.set('');
+    this.importEmbedUrl.set(null);
+    this.importUrl = '';
+    this.importSongTitle = '';
+    this.importArtist = '';
+  }
+
+  closeImport() {
+    this.importOpen.set(false);
+    this.importEmbedUrl.set(null);
+    this.importError.set('');
+  }
+
+  previewImport() {
+    if (!this.importUrl) return;
+    const id = this._extractYoutubeId(this.importUrl);
     if (!id) {
-      this.queueError.set('Could not parse YouTube URL. Please check the link.');
+      this.importError.set('Could not parse YouTube URL. Please check the link.');
       return;
     }
-    this.queueError.set('');
-    this.previewEmbedUrl.set(
+    this.importError.set('');
+    this.importEmbedUrl.set(
       this.sanitizer.bypassSecurityTrustResourceUrl(`https://www.youtube.com/embed/${id}?autoplay=1`)
     );
   }
 
-  cancelPreview() {
-    this.previewEmbedUrl.set(null);
-    this.queueError.set('');
+  confirmImport() {
+    if (!this.session || !this.importUrl) return;
+    this.importing.set(true);
+    this.importError.set('');
+    this.api.importVideo(this.session.token, {
+      youtubeUrl: this.importUrl,
+      songTitle: this.importSongTitle.trim() || undefined,
+      artist: this.importArtist.trim() || undefined,
+    }).subscribe({
+      next: (video) => {
+        this.importing.set(false);
+        this.closeImport();
+        // Surface the newly-imported video immediately and pre-select it.
+        this.searchQuery.set('');
+        this.videoPage.set(0);
+        this.selectedVideo.set(video);
+        this.runSearch();
+      },
+      error: (err: HttpErrorResponse) => {
+        this.importing.set(false);
+        this.importError.set(err.error?.error?.message ?? 'Could not import video.');
+      },
+    });
   }
 
   confirmQueue() {
-    if (!this.session || !this.queueUrl) return;
+    if (!this.session || !this.selectedVideo()) return;
     this.queuing.set(true);
     this.queueError.set('');
     this.api.queuePerformance(this.session.gameId, this.session.token, {
       type: 'KARAOKE',
-      youtubeUrl: this.queueUrl,
+      videoId: this.selectedVideo()!.videoId,
       performerPlayerIds: [...this.selectedPerformers()],
       slotCount: this.slotCount(),
     }).subscribe({
       next: () => {
         this.queuing.set(false);
-        this.previewEmbedUrl.set(null);
-        this.queueUrl = '';
+        this.selectedVideo.set(null);
         this.selectedPerformers.set(new Set());
         this.slotCount.set(1);
       },

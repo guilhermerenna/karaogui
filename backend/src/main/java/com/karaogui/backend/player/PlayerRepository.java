@@ -10,4 +10,6 @@ public interface PlayerRepository extends JpaRepository<Player, UUID> {
     List<Player> findAllByGameIdOrderByScoreDesc(UUID gameId);
 
     Optional<Player> findByIdAndGameId(UUID id, UUID gameId);
+
+    Optional<Player> findByGameIdAndDisplayNameIgnoreCase(UUID gameId, String displayName);
 }

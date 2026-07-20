@@ -133,6 +133,17 @@ resubscribe) — enforced server-side too (T03 §8), the client just reflects it
   `POST …/volunteer`.
 - Submit performance → `POST …/performances` (type-specific form; validation mirrors
   T02 §4.4 client-side, backend authoritative).
+- **Queue karaoke (search-first)** — the queue form is a **video-library search** rather
+  than a raw URL box. The player types into a debounced search bar → `GET /api/videos?q=`
+  (6/page, pager via `hasMore`). Each result row shows the thumbnail plus `songTitle`,
+  `artist`, `videoName` — **blank/null lines are omitted**. Selecting a row + performers
+  and hitting **Queue** submits `POST …/performances` with `videoId`. The host also sees a
+  🗑️ per row → `DELETE /api/videos/{id}` then re-search.
+- **Import to library (sub-flow)** — an "Import video to Library" button opens a modal
+  with a YouTube URL box plus optional song title / artist inputs, and a preview embed
+  (URL→preview→confirm). Confirm → `POST /api/videos`; on success the list re-searches so
+  the new video is immediately selectable. Import and queue are **distinct steps**: import
+  adds to the shared library, then the user selects it and queues.
 - Save/submit evaluation → `PUT …/evaluation` (`submit:false` autosave, `submit:true`
   finalize).
 - Submit/change/withdraw rating → `PUT`/`DELETE …/rating`.

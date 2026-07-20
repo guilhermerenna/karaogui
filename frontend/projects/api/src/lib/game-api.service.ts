@@ -7,8 +7,11 @@ import type {
   CurrentPerformanceDto,
   EvaluateRequest,
   GameSnapshotDto,
+  ImportVideoRequest,
   QueuePerformanceRequest,
   RateRequest,
+  VideoDto,
+  VideoSearchResponse,
 } from 'contracts';
 
 const BASE = `http://${window.location.hostname}:8080/api`;
@@ -124,6 +127,29 @@ export class GameApiService {
   getComments(gameId: string, token: string, page = 0): Observable<CommentDto[]> {
     return this.http.get<CommentDto[]>(
       `${BASE}/games/${gameId}/comments?page=${page}`,
+      { headers: this.authHeaders(token) },
+    );
+  }
+
+  searchVideos(token: string, q = '', page = 0): Observable<VideoSearchResponse> {
+    const params = new URLSearchParams({ q, page: String(page) });
+    return this.http.get<VideoSearchResponse>(
+      `${BASE}/videos?${params.toString()}`,
+      { headers: this.authHeaders(token) },
+    );
+  }
+
+  importVideo(token: string, req: ImportVideoRequest): Observable<VideoDto> {
+    return this.http.post<VideoDto>(
+      `${BASE}/videos`,
+      req,
+      { headers: this.authHeaders(token) },
+    );
+  }
+
+  deleteVideo(token: string, videoId: string): Observable<void> {
+    return this.http.delete<void>(
+      `${BASE}/videos/${videoId}`,
       { headers: this.authHeaders(token) },
     );
   }

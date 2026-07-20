@@ -368,7 +368,38 @@ A pre-minted display token waiting to be claimed by a game. Created when a TV ca
 - A stale pending row (TV opened but no game ever created) is harmless — the code
   simply stays reserved until cleaned up.
 
----
+### 2.16 `video` (video library)
+A **global, shared** video library — the single exception to the game-scoped
+convention (§ conventions). Videos imported in one game are reusable across all games,
+so the table carries **no `game_id`**. Queuing a karaoke performance is search-first:
+users find a previously-imported video rather than pasting a raw URL each time.
+
+| Column | Type | Notes |
+|--------|------|-------|
+| `id` | `uuid` PK | |
+| `youtube_id` | `text` UNIQUE | canonical YouTube id; **dedupes** imports (re-importing the same URL reuses the row) |
+| `youtube_url` | `text` | the raw URL as imported |
+| `video_name` | `text` NULL | YouTube `snippet.title` (auto-filled) |
+| `thumbnail_url` | `text` NULL | YouTube `snippet.thumbnails` high→medium (auto-filled) |
+| `song_title` | `text` NULL | user-entered, optional |
+| `artist` | `text` NULL | user-entered, optional |
+| `duration_seconds` | `bigint` NULL | same value used to drive the judging grace-period countdown |
+| `created_at` | `timestamptz` | |
+| `created_by_player_id` | `uuid` NULL | informational only, **no FK** (the global library outlives any game) |
+| `version` | `bigint` | optimistic-lock `@Version` |
+
+Index: `idx_video_search (video_name, song_title, artist)` for the case-insensitive
+`LIKE` search across those three columns.
+
+- **Import** (`POST /api/videos`) — any player. Auto-fills name/thumbnail/duration from
+  the YouTube Data API; song title / artist are optional user input. Idempotent by
+  `youtube_id`.
+- **Delete** (`DELETE /api/videos/{id}`) — host-only (any game's host may curate).
+- **Queue from a library video** copies the stored `duration_seconds` into the
+  `performance` **without** re-fetching from YouTube; the RUNNING→`judging_deadline_at`
+  math (T04) is unchanged.
+
+
 
 ## 3. JPA / Hibernate mapping guidance
 
@@ -420,6 +451,7 @@ How each Business invariant (07 §Invariants) is guaranteed:
     `rating_score`.
   - `V4__comments_likes.sql` — `comment`, `comment_like`.
   - `V10__pending_tv_session.sql` — `pending_tv_session`.
+  - `V12__video_library.sql` — `video` (global library).
 - Enums are created as Postgres `CREATE TYPE ... AS ENUM` (or text + `CHECK`
   constraint — **[DECISION]** default to native `ENUM` types for readability;
   revisit if enum churn becomes painful, since altering PG enums is awkward).
@@ -445,6 +477,7 @@ How each Business invariant (07 §Invariants) is guaranteed:
 | Queue | `performance.queue_position` (+ ordering) |
 | Skip | `player_skip` |
 | Break | `player.on_break_until` |
+| Video Library | `video` (global; queuing copies its `duration_seconds`) |
 
 ---
 

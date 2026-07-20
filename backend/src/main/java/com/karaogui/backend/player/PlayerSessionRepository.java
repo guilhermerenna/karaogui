@@ -7,4 +7,6 @@ import org.springframework.data.jpa.repository.JpaRepository;
 public interface PlayerSessionRepository extends JpaRepository<PlayerSession, UUID> {
 
     Optional<PlayerSession> findByTokenHash(String tokenHash);
+
+    void deleteByPlayerId(UUID playerId);
 }

@@ -23,6 +23,8 @@ import com.karaogui.backend.performance.dto.ScoreResultDto;
 import com.karaogui.backend.performance.dto.SlotDto;
 import com.karaogui.backend.player.Player;
 import com.karaogui.backend.player.PlayerRepository;
+import com.karaogui.backend.video.Video;
+import com.karaogui.backend.video.VideoRepository;
 import jakarta.persistence.EntityNotFoundException;
 import java.time.Clock;
 import java.time.Duration;
@@ -56,6 +58,7 @@ public class PerformanceService {
     private final RatingScoreRepository ratingScoreRepo;
     private final PlayerRepository playerRepo;
     private final GameRepository gameRepo;
+    private final VideoRepository videoRepo;
     private final ApplicationEventPublisher eventPublisher;
     private final KaraoguiProperties props;
     private final YoutubeMetadataClient youtubeClient;
@@ -71,6 +74,7 @@ public class PerformanceService {
             RatingScoreRepository ratingScoreRepo,
             PlayerRepository playerRepo,
             GameRepository gameRepo,
+            VideoRepository videoRepo,
             ApplicationEventPublisher eventPublisher,
             KaraoguiProperties props,
             YoutubeMetadataClient youtubeClient,
@@ -84,6 +88,7 @@ public class PerformanceService {
         this.ratingScoreRepo = ratingScoreRepo;
         this.playerRepo = playerRepo;
         this.gameRepo = gameRepo;
+        this.videoRepo = videoRepo;
         this.eventPublisher = eventPublisher;
         this.props = props;
         this.youtubeClient = youtubeClient;
@@ -98,12 +103,28 @@ public class PerformanceService {
         if (game.getState() != GameState.ACTIVE) {
             throw new GameStateException("GAME_NOT_ACTIVE", "Game must be ACTIVE to queue a performance.");
         }
-        YoutubeMetadataClient.LookupResult metadata = youtubeClient.fetch(req.youtubeUrl());
-        if (metadata.isRejected()) {
-            throw new GameStateException(metadata.rejectReason(),
-                    "This YouTube link can't be used. Please check the video and try another.");
-        }
         PerformanceType type = PerformanceType.valueOf(req.type());
+
+        String youtubeUrl;
+        Long durationSeconds;
+        if (req.videoId() != null) {
+            // Queue from a library video: reuse the stored URL and duration, skip the YouTube round-trip.
+            Video video = videoRepo.findById(req.videoId())
+                    .orElseThrow(() -> new EntityNotFoundException("Video not found: " + req.videoId()));
+            youtubeUrl = video.getYoutubeUrl();
+            durationSeconds = video.getDurationSeconds();
+        } else if (req.youtubeUrl() != null && !req.youtubeUrl().isBlank()) {
+            // Legacy path: fetch metadata directly from the raw URL.
+            YoutubeMetadataClient.LookupResult metadata = youtubeClient.fetch(req.youtubeUrl());
+            if (metadata.isRejected()) {
+                throw new GameStateException(metadata.rejectReason(),
+                        "This YouTube link can't be used. Please check the video and try another.");
+            }
+            youtubeUrl = req.youtubeUrl();
+            durationSeconds = metadata.metadata() != null ? metadata.metadata().durationSeconds() : null;
+        } else {
+            throw new GameStateException("NO_VIDEO", "A video must be selected to queue a performance.");
+        }
 
         List<Player> allPlayers = playerRepo.findAllByGameIdOrderByScoreDesc(gameId);
         int nextQueuePos = performanceRepo.findByGameIdOrderByQueuePositionAsc(gameId).size();
@@ -111,9 +132,9 @@ public class PerformanceService {
 
         Performance performance = new Performance(
                 gameId, type, nextQueuePos, gameLocalNumber,
-                identity.playerId(), req.youtubeUrl());
-        if (metadata.metadata() != null) {
-            performance.setDurationSeconds(metadata.metadata().durationSeconds());
+                identity.playerId(), youtubeUrl);
+        if (durationSeconds != null) {
+            performance.setDurationSeconds(durationSeconds);
         }
         performanceRepo.save(performance);
 
