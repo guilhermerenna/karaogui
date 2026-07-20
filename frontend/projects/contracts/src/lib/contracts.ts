@@ -48,6 +48,9 @@ export interface CurrentPerformanceDto {
   replacementOpensAt: string | null;
   slots: PerformanceSlotDto[];
   judgePlayerIds: string[];
+  durationSeconds: number | null;
+  judgingDeadlineAt: string | null;
+  startedAt: string | null;
 }
 
 export interface PerformanceAnnouncedData {

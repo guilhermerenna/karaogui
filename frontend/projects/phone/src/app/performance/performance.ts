@@ -139,9 +139,11 @@ const CRITERIA = ['PITCH', 'ENERGY', 'STAGE_PRESENCE'] as const;
                 @if (actionError()) { <p class="error-msg" style="margin-top:.5rem">{{ actionError() }}</p> }
               </div>
             }
-            @if (isJudge() && evalSubmitted()) {
-              <div style="background:#dcfce7;border-radius:8px;padding:1rem;margin-bottom:1rem;text-align:center;color:#166534">
-                Evaluation submitted!
+            @if (isJudge() && evalToastVisible()) {
+              <div style="position:fixed;top:1.5rem;left:50%;transform:translateX(-50%);z-index:100;background:#166534;color:#fff;border-radius:12px;padding:1rem 1.5rem;min-width:240px;text-align:center;box-shadow:0 4px 20px rgba(0,0,0,.3)">
+                <div style="font-weight:600;margin-bottom:.5rem">Evaluation submitted!</div>
+                <button style="background:rgba(255,255,255,.2);border:none;color:#fff;border-radius:6px;padding:.3rem .9rem;cursor:pointer;font-size:.85rem"
+                  (click)="dismissEval()">Dismiss</button>
               </div>
             }
 
@@ -304,9 +306,24 @@ export class PerformanceComponent implements OnInit, OnDestroy {
   volunteering = signal(false);
   submittingEval = signal(false);
   submittingRating = signal(false);
-  evalSubmitted = signal(false);
-  ratingSubmitted = signal(false);
+  // Track WHICH performance the eval/rating was submitted for, so the state
+  // resets automatically when a new performance is announced.
+  private evalSubmittedFor = signal<number | null>(null);
+  private ratingSubmittedFor = signal<number | null>(null);
+  // Toast visibility is independent of submitted state: dismissing the toast
+  // must NOT reopen the eval form while the performance is still RUNNING.
+  evalToastVisible = signal(false);
   actionError = signal('');
+
+  readonly evalSubmitted = computed(() => {
+    const perf = this.rt.currentPerformance$();
+    return !!perf && this.evalSubmittedFor() === perf.performanceId;
+  });
+
+  readonly ratingSubmitted = computed(() => {
+    const perf = this.rt.currentPerformance$();
+    return !!perf && this.ratingSubmittedFor() === perf.performanceId;
+  });
 
   secondsLeft = signal(0);
   overallScore = signal(5);
@@ -325,6 +342,7 @@ export class PerformanceComponent implements OnInit, OnDestroy {
   readonly canLoadMore = computed(() => this._commentPage < this._totalCommentPages - 1);
 
   private timerHandle: ReturnType<typeof setInterval> | null = null;
+  private evalDismissHandle: ReturnType<typeof setTimeout> | null = null;
   private resnapSub: any = null;
 
   readonly mySlot = computed(() => {
@@ -355,6 +373,20 @@ export class PerformanceComponent implements OnInit, OnDestroy {
     effect(() => {
       if (this.rt.gameEnded$()) {
         this.router.navigate(['/results']);
+      }
+    });
+
+    // When a new performance is announced, hide any lingering toast and reset
+    // the score sliders so this judge/audience member starts fresh.
+    let lastPerfId: number | null = null;
+    effect(() => {
+      const perf = this.rt.currentPerformance$();
+      const id = perf?.performanceId ?? null;
+      if (id !== lastPerfId) {
+        lastPerfId = id;
+        this.dismissEval();
+        this.evalScores = { PITCH: 5, ENERGY: 5, STAGE_PRESENCE: 5 };
+        this.overallScore.set(5);
       }
     });
   }
@@ -401,6 +433,7 @@ export class PerformanceComponent implements OnInit, OnDestroy {
   ngOnDestroy() {
     this.resnapSub?.unsubscribe();
     if (this.timerHandle) clearInterval(this.timerHandle);
+    if (this.evalDismissHandle) clearTimeout(this.evalDismissHandle);
   }
 
   setSlotCount(n: number) {
@@ -518,13 +551,20 @@ export class PerformanceComponent implements OnInit, OnDestroy {
     }).subscribe({
       next: () => {
         this.submittingEval.set(false);
-        this.evalSubmitted.set(true);
+        this.evalSubmittedFor.set(perf.performanceId);
+        this.evalToastVisible.set(true);
+        this.evalDismissHandle = setTimeout(() => this.dismissEval(), 5000);
       },
       error: (err: HttpErrorResponse) => {
         this.submittingEval.set(false);
         this.actionError.set(err.error?.error?.message ?? 'Could not submit evaluation.');
       },
     });
+  }
+
+  dismissEval() {
+    if (this.evalDismissHandle) { clearTimeout(this.evalDismissHandle); this.evalDismissHandle = null; }
+    this.evalToastVisible.set(false);
   }
 
   submitRating() {
@@ -538,7 +578,7 @@ export class PerformanceComponent implements OnInit, OnDestroy {
     }).subscribe({
       next: () => {
         this.submittingRating.set(false);
-        this.ratingSubmitted.set(true);
+        this.ratingSubmittedFor.set(perf.performanceId);
       },
       error: (err: HttpErrorResponse) => {
         this.submittingRating.set(false);

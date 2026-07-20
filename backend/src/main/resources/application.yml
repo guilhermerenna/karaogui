@@ -22,7 +22,7 @@ management:
 karaogui:
   youtube:
     api-key: ${YOUTUBE_API_KEY:}
-    judging-grace: 90s
+    judging-grace: 30s
     fallback-ceiling: 8m
   timers:
     ready-confirm-window: 30s

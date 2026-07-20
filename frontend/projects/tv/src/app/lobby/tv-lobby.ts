@@ -92,6 +92,22 @@ import { RealtimeService } from 'realtime';
                   <div style="font-size:1.1rem;color:#86efac;margin-top:1rem">
                     Judges — rate on your phone!
                   </div>
+                  @if (perf.durationSeconds) {
+                    <div class="tv-progress-track">
+                      <div class="tv-progress-fill" [style.width.%]="judgingPct()">
+                        <span class="tv-progress-label">{{ judgingSecondsLeft() }}s</span>
+                      </div>
+                    </div>
+                  }
+                  @if (judgingGraceSecondsLeft() > 0) {
+                    <div class="tv-judge-overlay">
+                      <div class="tv-perf-title">Waiting for judges</div>
+                      <div class="tv-countdown">{{ judgingGraceSecondsLeft() }}s</div>
+                      <div style="font-size:1.25rem;color:#94a3b8;margin-top:.75rem">
+                        Evaluate using your phone
+                      </div>
+                    </div>
+                  }
                 </div>
               }
 
@@ -362,6 +378,49 @@ import { RealtimeService } from 'realtime';
     .tv-comment-author { font-weight: 700; color: #a5b4fc; font-size: .75rem; }
     .tv-comment-body { color: #e2e8f0; line-height: 1.4; }
     .tv-comment-likes { color: #f87171; font-size: .75rem; }
+
+    .tv-progress-track {
+      width: 100%;
+      margin-top: 1.5rem;
+      height: 2.5rem;
+      border-radius: 999px;
+      background: #0f172a;
+      overflow: hidden;
+      position: relative;
+    }
+    .tv-progress-fill {
+      height: 100%;
+      border-radius: 999px;
+      background: linear-gradient(90deg, #6366f1, #a5b4fc);
+      transition: width 0.5s linear;
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      min-width: 3rem;
+    }
+    .tv-progress-label {
+      color: #fff;
+      font-size: 1rem;
+      font-weight: 700;
+      padding-right: .75rem;
+      white-space: nowrap;
+    }
+    .tv-judge-overlay {
+      position: fixed;
+      top: 2rem;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 50;
+      background: #1e1b4b;
+      border-radius: 16px;
+      padding: 2rem 3rem;
+      text-align: center;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      box-shadow: 0 8px 32px rgba(0,0,0,.6);
+      min-width: 320px;
+    }
   `],
 })
 export class TvLobbyComponent implements OnInit, OnDestroy {
@@ -378,6 +437,9 @@ export class TvLobbyComponent implements OnInit, OnDestroy {
   loaded = signal(false);
   error = signal('');
   secondsLeft = signal(0);
+  judgingSecondsLeft = signal(0);
+  judgingPct = signal(100);
+  judgingGraceSecondsLeft = signal(0);
 
   readonly youtubeEmbedUrl = computed((): SafeResourceUrl | null => {
     const url = this.rt.currentPerformance$()?.youtubeUrl;
@@ -440,6 +502,20 @@ export class TvLobbyComponent implements OnInit, OnDestroy {
         this.secondsLeft.set(Math.max(0, Math.ceil(ms / 1000)));
       } else {
         this.secondsLeft.set(0);
+      }
+
+      if (perf?.state === 'RUNNING' && perf.startedAt && perf.judgingDeadlineAt && perf.durationSeconds) {
+        const now = Date.now();
+        const songEndMs = new Date(perf.startedAt).getTime() + perf.durationSeconds * 1000;
+        const deadlineMs = new Date(perf.judgingDeadlineAt).getTime();
+        const songRemaining = Math.max(0, songEndMs - now);
+        this.judgingSecondsLeft.set(Math.ceil(songRemaining / 1000));
+        this.judgingPct.set(Math.max(0, Math.min(100, (songRemaining / (perf.durationSeconds * 1000)) * 100)));
+        this.judgingGraceSecondsLeft.set(songRemaining > 0 ? 0 : Math.ceil(Math.max(0, deadlineMs - now) / 1000));
+      } else {
+        this.judgingSecondsLeft.set(0);
+        this.judgingPct.set(0);
+        this.judgingGraceSecondsLeft.set(0);
       }
     }, 500);
 

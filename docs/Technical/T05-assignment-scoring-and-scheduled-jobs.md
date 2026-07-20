@@ -138,6 +138,14 @@ The performer's **aggregate judge score** averages across all submitted judges:
 J(p) = avg over judges j of judgeScore(j, p)                      // 1..10
 ```
 
+- **Partial / absent judges (force-lock).** When a performance is force-locked at its
+  judging deadline (T04 §2.2) rather than by all judges submitting, only the judges who
+  actually submitted contribute to `J(p)`. If **no** judge submitted, the judge
+  component defaults to a neutral **5.0** (mid-scale). Any single missing criterion
+  within a submitted evaluation likewise falls back to **5.0**. This keeps a
+  judge-dropout from producing a `NaN`/zero score — the performance still locks with a
+  sensible number and the game proceeds.
+
 ### 3.3 Audience component
 
 Each audience rating's `total_score` is the mean of its `rating_score` sub-scores
@@ -318,6 +326,9 @@ next   = order[ (challengesInjectedSoFar) mod 4 ]
 Extends the T01 §5 migration set:
 
 - `V6__trivia_scoring.sql` — `trivia_answer` table (§4.1) + `performance.winner_player_id` column (§5).
+- `V11__performance_judging_deadline.sql` — `performance.duration_seconds` (nullable; the
+  YouTube video length fetched at queue time, §11) + `performance.judging_deadline_at`
+  (nullable; the RUNNING force-lock deadline, T04 §3).
 
 ---
 
@@ -343,7 +354,68 @@ authoritative when a value changes. The list here is just what T05 introduces:
 `PHYSICAL_CHALLENGE_JOB_INTERVAL`, `PHYSICAL_CHALLENGE_THRESHOLD` already in T00 §6.)
 All are catalogued and explained for tuning in **T08**.
 
-## 10. Open items for later docs
+---
+
+## 11. YouTube metadata lookup & the RUNNING force-lock timer
+
+Karaoke/Dance performances embed a YouTube video. Two concerns are handled at **queue
+time** by a best-effort call to the **YouTube Data API v3** `videos.list` endpoint
+(`part=contentDetails,status`, quota cost 1 unit/call):
+
+1. **Song duration** → drives the RUNNING judging-deadline timer (T04 §3), so a dropped
+   judge can never stall the game (T04 §2.2).
+2. **Embeddability & existence** → reject links that can't play *before* they enter the
+   queue, complementing the phone-side visual preview.
+
+### 11.1 The metadata client (`YoutubeMetadataClient`)
+
+`fetch(youtubeUrl)` returns one of three outcomes:
+
+| Outcome | When | Caller behavior (queue) |
+|---------|------|-------------------------|
+| **REJECTED** | URL has no parseable video id (`NOT_A_YOUTUBE_VIDEO`); API returns empty `items` — video deleted/private/typo (`VIDEO_NOT_FOUND`); `status.embeddable == false` (`VIDEO_NOT_EMBEDDABLE`) | Reject the submission → `409` with the reason code (T02 §4.4) |
+| **UNAVAILABLE** | API could not be consulted: missing key, quota exhausted (403 `quotaExceeded`), network/5xx | **Allow through** with no duration; the timer falls back to `YOUTUBE_FALLBACK_CEILING` |
+| **OK** | Real, embeddable video | Queue it; store `duration_seconds` on the performance |
+
+> **[DECISION]** the API is a **soft** dependency. Only a *definite bad-video verdict*
+> blocks a submission; a *failure to reach the API* never does — otherwise a quota
+> wipe-out would block all queueing until the daily reset (midnight PT). Link validation
+> degrades gracefully to the phone preview, and song timing degrades to the fixed
+> ceiling.
+
+Duration is parsed from the ISO-8601 `contentDetails.duration` (e.g. `PT4M13S`) via
+`java.time.Duration.parse` → seconds, persisted in `performance.duration_seconds`.
+
+### 11.2 Deadline computation & sweep
+
+At `CONFIRMING → RUNNING` (T04 §2.1) the engine sets:
+
+```
+judging_deadline_at = started_at
+                    + (duration_seconds ?: YOUTUBE_FALLBACK_CEILING)
+                    + JUDGING_GRACE
+```
+
+The existing `PerformanceTimerJob` sweep (5s `fixedDelay`, T04 §3) — already responsible
+for the `CONFIRMING` skip timer — additionally queries `RUNNING` performances past
+`judging_deadline_at` and force-locks them (§3.2 partial-score path).
+
+### 11.3 Configuration
+
+`karaogui.youtube.*` (T08 §1):
+
+| Key | Meaning | Initial |
+|-----|---------|---------|
+| `karaogui.youtube.apiKey` | Data API v3 key; bound from `YOUTUBE_API_KEY` env (blank ⇒ every lookup is UNAVAILABLE) | *(blank)* |
+| `karaogui.youtube.judgingGrace` | extra time after the song for judges to finish before force-lock | **90 s** |
+| `karaogui.youtube.fallbackCeiling` | RUNNING ceiling when duration is unknown | **8 min** |
+
+The key is supplied via a git-ignored root `.env` file (`YOUTUBE_API_KEY=...`), which
+`docker-compose` loads automatically; `.env.example` documents the variable.
+
+---
+
+## 12. Open items for later docs
 - Whether trivia **speed** should use absolute answer time vs. finish-rank among
   correct answerers → currently rank-based (§4.2); revisit if it feels unfair with
   few correct answers.

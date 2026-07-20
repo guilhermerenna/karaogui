@@ -58,6 +58,12 @@ public class Performance {
     @Column(name = "locked_at")
     private Instant lockedAt;
 
+    @Column(name = "duration_seconds")
+    private Long durationSeconds;
+
+    @Column(name = "judging_deadline_at")
+    private Instant judgingDeadlineAt;
+
     @Version
     private long version;
 
@@ -88,10 +94,15 @@ public class Performance {
     public Instant getStartedAt() { return startedAt; }
     public Instant getLockedAt() { return lockedAt; }
 
+    public Long getDurationSeconds() { return durationSeconds; }
+    public Instant getJudgingDeadlineAt() { return judgingDeadlineAt; }
+
     public void setState(PerformanceState state) { this.state = state; }
     public void setConfirmDeadlineAt(Instant confirmDeadlineAt) { this.confirmDeadlineAt = confirmDeadlineAt; }
     public void setReplacementOpensAt(Instant replacementOpensAt) { this.replacementOpensAt = replacementOpensAt; }
     public void setAnnouncedAt(Instant announcedAt) { this.announcedAt = announcedAt; }
     public void setStartedAt(Instant startedAt) { this.startedAt = startedAt; }
     public void setLockedAt(Instant lockedAt) { this.lockedAt = lockedAt; }
+    public void setDurationSeconds(Long durationSeconds) { this.durationSeconds = durationSeconds; }
+    public void setJudgingDeadlineAt(Instant judgingDeadlineAt) { this.judgingDeadlineAt = judgingDeadlineAt; }
 }

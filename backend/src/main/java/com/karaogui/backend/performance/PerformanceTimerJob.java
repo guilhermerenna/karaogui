@@ -23,10 +23,16 @@ public class PerformanceTimerJob {
     @Scheduled(fixedDelay = 5000)
     public void tick() {
         Instant now = clock.instant();
-        List<Performance> expired = performanceRepo
+        List<Performance> expiredConfirming = performanceRepo
                 .findByStateAndConfirmDeadlineAtBefore(PerformanceState.CONFIRMING, now);
-        for (Performance p : expired) {
+        for (Performance p : expiredConfirming) {
             performanceService.skipPerformance(p.getId());
+        }
+
+        List<Performance> expiredRunning = performanceRepo
+                .findByStateAndJudgingDeadlineAtBefore(PerformanceState.RUNNING, now);
+        for (Performance p : expiredRunning) {
+            performanceService.forceLockExpired(p.getId());
         }
     }
 }

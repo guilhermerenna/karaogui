@@ -252,6 +252,23 @@ Response `201`: the created performance with its `gameLocalNumber`, `queuePositi
 `state=QUEUED`, and the resolved performer slots (RANDOM slots are filled at
 announcement time by the engine, not here).
 
+**YouTube link validation (Karaoke/Dance).** Before queueing, the engine performs a
+best-effort YouTube Data API lookup on `content.youtubeUrl` (T05 §11). A **definite
+bad-video verdict** rejects the submission with `409` and a reason code; a mere *failure
+to reach the API* (missing key, quota exhausted, network/5xx) is **soft** and lets the
+submission through with no duration (the force-lock timer then uses the fallback ceiling).
+
+| `409` code | When |
+|------------|------|
+| `NOT_A_YOUTUBE_VIDEO` | the URL has no parseable YouTube video id |
+| `VIDEO_NOT_FOUND` | the API returned no items — deleted, private, or a typo'd id |
+| `VIDEO_NOT_EMBEDDABLE` | the video exists but `status.embeddable == false` (can't play in-app) |
+
+The `409` envelope carries the code and a player-friendly message
+(`{ "error": { "code": "VIDEO_NOT_EMBEDDABLE", "message": "This YouTube link can't be
+used. Please check the video and try another." } }`); the phone queue form surfaces the
+message (T06).
+
 #### `GET /api/games/{gameId}/performances/{performanceId}` — performance detail
 Role-filtered: trivia `answer`s included **only** if the caller is a judge on it.
 

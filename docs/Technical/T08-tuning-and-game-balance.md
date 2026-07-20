@@ -28,7 +28,14 @@ constants also appear in T00/T05; those docs describe *mechanism*, this one is t
 | `karaogui.timers.readyConfirmWindow` | performer ready-confirmation window | **30 s** | more time to confirm; slower pacing, fewer skips |
 | `karaogui.timers.replacementOpenAfter` | when volunteers may replace unconfirmed performers | **15 s** | volunteers wait longer; original performers get more grace |
 | `karaogui.timers.breakDuration` | "on a break" no-pick window | **15 min** | longer opt-out; fewer eligible players for assignment |
+| `karaogui.youtube.judgingGrace` | extra time after the song for judges to finish before the RUNNING force-lock | **90 s** | judges get longer after the song ends; a dropped judge stalls the game longer |
+| `karaogui.youtube.fallbackCeiling` | RUNNING force-lock ceiling when the song duration is unknown (API unavailable / not a video) | **8 min** | performances with unknown duration run longer before force-locking |
 | `karaogui.scoreboard.pageInterval` | how long each scoreboard page shows before cycling | **~5 s** | slower scoreboard rotation |
+
+> **YouTube lookup (T05 §11).** `karaogui.youtube.apiKey` is **not** a balance dial — it's a
+> credential bound from the `YOUTUBE_API_KEY` env var (git-ignored `.env`). Blank ⇒ every
+> lookup is *UNAVAILABLE*, so durations fall back to `judgingGrace` + `fallbackCeiling` and
+> link validation degrades to the phone preview. The two timers above *are* dials.
 
 ## 2. Scoreboard display
 
@@ -97,6 +104,7 @@ Cyclic order is fixed (`BALLOON → WATER → MARSHMALLOW → COOKIE → …`, T
 | This doc's group | Mechanism defined in |
 |------------------|----------------------|
 | Pacing & timers | T04 (engine), T00 §6 |
+| YouTube lookup & force-lock | T05 §11, T04 §2.2/§3 |
 | Scoreboard | T06 §4 (frontend paging), Business 04 |
 | Assignment bias | T05 §1 |
 | Subjective scoring | T05 §3 |

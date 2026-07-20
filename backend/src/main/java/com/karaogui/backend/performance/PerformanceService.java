@@ -25,6 +25,7 @@ import com.karaogui.backend.player.Player;
 import com.karaogui.backend.player.PlayerRepository;
 import jakarta.persistence.EntityNotFoundException;
 import java.time.Clock;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -54,6 +55,7 @@ public class PerformanceService {
     private final GameRepository gameRepo;
     private final ApplicationEventPublisher eventPublisher;
     private final KaraoguiProperties props;
+    private final YoutubeMetadataClient youtubeClient;
     private final Clock clock;
 
     public PerformanceService(
@@ -68,6 +70,7 @@ public class PerformanceService {
             GameRepository gameRepo,
             ApplicationEventPublisher eventPublisher,
             KaraoguiProperties props,
+            YoutubeMetadataClient youtubeClient,
             Clock clock) {
         this.performanceRepo = performanceRepo;
         this.slotRepo = slotRepo;
@@ -80,6 +83,7 @@ public class PerformanceService {
         this.gameRepo = gameRepo;
         this.eventPublisher = eventPublisher;
         this.props = props;
+        this.youtubeClient = youtubeClient;
         this.clock = clock;
     }
 
@@ -91,6 +95,11 @@ public class PerformanceService {
         if (game.getState() != GameState.ACTIVE) {
             throw new GameStateException("GAME_NOT_ACTIVE", "Game must be ACTIVE to queue a performance.");
         }
+        YoutubeMetadataClient.LookupResult metadata = youtubeClient.fetch(req.youtubeUrl());
+        if (metadata.isRejected()) {
+            throw new GameStateException(metadata.rejectReason(),
+                    "This YouTube link can't be used. Please check the video and try another.");
+        }
         PerformanceType type = PerformanceType.valueOf(req.type());
 
         List<Player> allPlayers = playerRepo.findAllByGameIdOrderByScoreDesc(gameId);
@@ -100,6 +109,9 @@ public class PerformanceService {
         Performance performance = new Performance(
                 gameId, type, nextQueuePos, gameLocalNumber,
                 identity.playerId(), req.youtubeUrl());
+        if (metadata.metadata() != null) {
+            performance.setDurationSeconds(metadata.metadata().durationSeconds());
+        }
         performanceRepo.save(performance);
 
         List<UUID> requestedIds = req.performerPlayerIds() != null ? req.performerPlayerIds() : List.of();
@@ -299,10 +311,25 @@ public class PerformanceService {
         announceNextQueued(game);
     }
 
+    @Transactional
+    public void forceLockExpired(Long performanceId) {
+        Performance perf = performanceRepo.findById(performanceId)
+                .orElseThrow(() -> new EntityNotFoundException("Performance not found: " + performanceId));
+        if (perf.getState() != PerformanceState.RUNNING) {
+            return;
+        }
+        lockPerformance(perf.getGameId(), perf);
+    }
+
     public Optional<CurrentPerformanceDto> findCurrentPerformance(UUID gameId) {
+        // An active (CONFIRMING/RUNNING) performance always takes precedence over a
+        // LOCKED one. Otherwise a just-locked performance with a lower queue position
+        // would shadow a newly announced/running one, so the frontends would never
+        // learn about the new performance.
         return performanceRepo.findTopByGameIdAndStateInOrderByQueuePositionAsc(
-                        gameId, List.of(PerformanceState.CONFIRMING, PerformanceState.RUNNING,
-                                PerformanceState.LOCKED))
+                        gameId, List.of(PerformanceState.CONFIRMING, PerformanceState.RUNNING))
+                .or(() -> performanceRepo.findTopByGameIdAndStateInOrderByQueuePositionAsc(
+                        gameId, List.of(PerformanceState.LOCKED)))
                 .map(p -> toCurrentDto(p, slotRepo.findByPerformanceIdOrderBySlotIndex(p.getId())));
     }
 
@@ -356,8 +383,13 @@ public class PerformanceService {
     }
 
     private void startPerformance(Game game, Performance perf) {
+        Instant now = clock.instant();
         perf.setState(PerformanceState.RUNNING);
-        perf.setStartedAt(clock.instant());
+        perf.setStartedAt(now);
+        Duration songLength = perf.getDurationSeconds() != null
+                ? Duration.ofSeconds(perf.getDurationSeconds())
+                : props.youtube().fallbackCeiling();
+        perf.setJudgingDeadlineAt(now.plus(songLength).plus(props.youtube().judgingGrace()));
         performanceRepo.save(perf);
 
         long seq = game.incrementAndGetSeq();
@@ -528,7 +560,8 @@ public class PerformanceService {
         return new CurrentPerformanceDto(
                 perf.getId(), perf.getType().name(), perf.getState().name(),
                 perf.getYoutubeUrl(), perf.getConfirmDeadlineAt(), perf.getReplacementOpensAt(),
-                slotDtos, judgePlayerIds);
+                slotDtos, judgePlayerIds, perf.getDurationSeconds(), perf.getJudgingDeadlineAt(),
+                perf.getStartedAt());
     }
 
     private Map<UUID, String> buildPlayerNameMap(UUID gameId) {

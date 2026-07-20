@@ -153,6 +153,9 @@ export class RealtimeService {
             replacementOpensAt: null,
             slots: d.slots,
             judgePlayerIds: d.judgePlayerIds,
+            durationSeconds: null,
+            judgingDeadlineAt: null,
+            startedAt: null,
           });
           this._judgeIds.set(d.judgePlayerIds);
           this._lockedScores.set([]);
@@ -175,6 +178,7 @@ export class RealtimeService {
         }
         case 'PERFORMANCE_STARTED': {
           this._currentPerformance.update(perf => perf ? { ...perf, state: 'RUNNING' } : perf);
+          this.resnap$.next();
           break;
         }
         case 'PERFORMANCE_LOCKED': {

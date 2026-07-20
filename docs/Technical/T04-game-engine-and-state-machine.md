@@ -44,11 +44,10 @@ States (T01 `performance_state`):
 branch from `CONFIRMING`.
 
 ```
-QUEUED ─pick next─> ANNOUNCED ─(begin confirm)─> CONFIRMING ─┬─ all confirmed ─> RUNNING ─ performers done
-                                                             │                              & all judges submitted
-                                                             └─ deadline, not enough ─> SKIPPED        │
-                                                                                                       ▼
-                                                                                                    LOCKED
+QUEUED ─pick next─> ANNOUNCED ─(begin confirm)─> CONFIRMING ─┬─ all confirmed ─> RUNNING ─┬─ performers done & all judges submitted ─┐
+                                                             │                            └─ judging deadline reached ────────────────┤
+                                                             └─ deadline, not enough ─> SKIPPED                                        ▼
+                                                                                                                                    LOCKED
 ```
 
 ### 2.1 Transitions & timers
@@ -64,7 +63,9 @@ Config constants (T00 §6): `READY_CONFIRM_WINDOW=30s`, `REPLACEMENT_OPEN_AFTER=
 | (within CONFIRMING) | volunteer replaces | swap slot: keep `original_player_id`, set `current_player_id`, `REPLACED`+confirmed | `SLOT_REPLACED` |
 | CONFIRMING → RUNNING | **all slots confirmed** (before deadline) | start performance | `PERFORMANCE_STARTED` |
 | CONFIRMING → SKIPPED | **deadline reached, not all confirmed** | vacate slots; move on | `PERFORMANCE_SKIPPED`, `SLOT_VACATED` |
+| CONFIRMING → RUNNING | (see above) | on start, set `judging_deadline_at = started_at + songLength + JUDGING_GRACE` (§3) | `PERFORMANCE_STARTED` |
 | RUNNING → LOCKED | performers done **and** all judges submitted | compute score (T05); add to players; freeze ratings | `PERFORMANCE_LOCKED`, `RANKING_UPDATED` |
+| RUNNING → LOCKED | **judging deadline reached** (safety net) | force-lock with whatever judge scores exist; missing judges contribute the neutral default (T05 §3.2) | `PERFORMANCE_LOCKED`, `RANKING_UPDATED` |
 
 ### 2.2 "Performers done"
 
@@ -78,6 +79,14 @@ Config constants (T00 §6): `READY_CONFIRM_WINDOW=30s`, `REPLACEMENT_OPEN_AFTER=
      requires the boolean.
 2. **All judges submitted** — every `judge_assignment` has an `evaluation` with
    `submitted_at` set.
+
+**Judge-dropout safety net.** Condition (2) alone would let a single unresponsive judge
+(refreshed the page, phone died, never loaded) stall the performance in `RUNNING`
+forever — no one else can advance it, and the whole game freezes. To prevent this, every
+`RUNNING` performance carries a `judging_deadline_at` (§3). When that deadline passes,
+the engine **force-locks** regardless of condition (2): scoring runs with whatever judge
+evaluations exist, and any missing judge simply contributes the neutral default score
+(T05 §3.2). All-submitted still locks *early*; the deadline is only the fallback.
 
 For **judge-less** types (none currently require zero judges except deterministic
 challenges, which still use confirm-only judges), condition (2) is vacuously true.
@@ -98,6 +107,12 @@ reaches a terminal state (`LOCKED` or `SKIPPED`).
     `SKIPPED`; if all confirmed earlier, the confirm handler already moved to
     `RUNNING` (the deadline check then no-ops).
   - **Replacement open:** at `+15s`, emit `REPLACEMENT_OPEN`.
+  - **Judging deadline:** at `judging_deadline_at`, if still `RUNNING` → **force-lock**
+    (§2.2, §5). If all judges submitted earlier, the submit handler already moved to
+    `LOCKED` (the deadline check then no-ops). The deadline is computed at start as
+    `started_at + songLength + JUDGING_GRACE`, where `songLength` is the YouTube video
+    duration fetched at queue time (T05 §11) or, when unavailable, the
+    `YOUTUBE_FALLBACK_CEILING` (T08 §1).
 - **Break expiry** (`on_break_until`) is likewise deadline-based; the engine treats a
   player as available again once the timestamp passes (no explicit event needed beyond
   `PLAYER_BREAK_CHANGED` on set/clear).
@@ -129,7 +144,8 @@ for that slot).
 
 ## 5. Scoring lock-in & ranking recompute
 
-On `RUNNING → LOCKED`:
+On `RUNNING → LOCKED` (whether triggered by all-judges-submitted or the judging-deadline
+force-lock, §2.2):
 
 1. **Freeze ratings:** set `rating.locked = true` for all ratings on the performance;
    reject further rating edits (`409 PERFORMANCE_LOCKED`, T02 §4.7). Emit

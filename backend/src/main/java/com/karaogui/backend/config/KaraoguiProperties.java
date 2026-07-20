@@ -6,12 +6,18 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 
 @ConfigurationProperties("karaogui")
 public record KaraoguiProperties(
+        Youtube youtube,
         Timers timers,
         Scoreboard scoreboard,
         Assignment assignment,
         Scoring scoring,
         Challenge challenge,
         Features features) {
+
+    public record Youtube(
+            String apiKey,
+            Duration judgingGrace,
+            Duration fallbackCeiling) {}
 
     public record Timers(
             Duration readyConfirmWindow,

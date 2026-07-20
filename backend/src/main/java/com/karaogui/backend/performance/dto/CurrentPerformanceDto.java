@@ -12,4 +12,7 @@ public record CurrentPerformanceDto(
         Instant confirmDeadlineAt,
         Instant replacementOpensAt,
         List<SlotDto> slots,
-        List<UUID> judgePlayerIds) {}
+        List<UUID> judgePlayerIds,
+        Long durationSeconds,
+        Instant judgingDeadlineAt,
+        Instant startedAt) {}

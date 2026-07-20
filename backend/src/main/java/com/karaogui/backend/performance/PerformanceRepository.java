@@ -14,5 +14,7 @@ public interface PerformanceRepository extends JpaRepository<Performance, Long> 
 
     List<Performance> findByStateAndConfirmDeadlineAtBefore(PerformanceState state, Instant deadline);
 
+    List<Performance> findByStateAndJudgingDeadlineAtBefore(PerformanceState state, Instant deadline);
+
     Optional<Performance> findTopByGameIdAndStateInOrderByQueuePositionAsc(UUID gameId, List<PerformanceState> states);
 }
