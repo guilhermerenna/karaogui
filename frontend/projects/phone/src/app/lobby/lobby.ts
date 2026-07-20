@@ -41,9 +41,15 @@ import type { SessionInfo } from 'contracts';
           </div>
 
           @if (session.isHost && rt.gameState$() === 'CREATED') {
-            <button class="btn btn-primary" style="margin-bottom:1rem" [disabled]="starting()" (click)="startGame()">
+            <button class="btn btn-primary" style="margin-bottom:1rem"
+              [disabled]="starting() || rt.players$().length < 3" (click)="startGame()">
               {{ starting() ? 'Starting…' : 'Start game' }}
             </button>
+            @if (rt.players$().length < 3) {
+              <p style="color:#888;font-size:.85rem;margin:-.5rem 0 1rem">
+                Need at least 3 players to start ({{ rt.players$().length }}/3).
+              </p>
+            }
           }
 
           @if (error()) {
@@ -115,7 +121,12 @@ export class LobbyComponent implements OnInit, OnDestroy {
       },
       error: (err: HttpErrorResponse) => {
         this.starting.set(false);
-        this.error.set(err.status === 409 ? 'Game already started.' : 'Could not start game.');
+        const code = err.error?.error?.code;
+        if (code === 'NOT_ENOUGH_PLAYERS') {
+          this.error.set('Need at least 3 players to start.');
+        } else {
+          this.error.set(err.status === 409 ? 'Game already started.' : 'Could not start game.');
+        }
       },
     });
   }

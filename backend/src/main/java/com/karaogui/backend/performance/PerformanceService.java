@@ -43,6 +43,9 @@ import org.springframework.transaction.annotation.Transactional;
 public class PerformanceService {
 
     private static final List<String> KARAOKE_CRITERIA = List.of("PITCH", "ENERGY", "STAGE_PRESENCE");
+    private static final int MAX_JUDGES = 2;
+    private static final int MIN_JUDGES = 1;
+    private static final int MIN_AUDIENCE = 1;
 
     private final PerformanceRepository performanceRepo;
     private final PerformerSlotRepository slotRepo;
@@ -115,7 +118,9 @@ public class PerformanceService {
         performanceRepo.save(performance);
 
         List<UUID> requestedIds = req.performerPlayerIds() != null ? req.performerPlayerIds() : List.of();
-        int maxSlots = req.slotCount() != null ? Math.max(1, req.slotCount()) : 2;
+        int requestedSlots = req.slotCount() != null ? Math.max(1, req.slotCount()) : 2;
+        // Reserve at least 1 judge and 1 audience member: performers <= totalPlayers - 2.
+        int maxSlots = Math.max(1, Math.min(requestedSlots, allPlayers.size() - MIN_JUDGES - MIN_AUDIENCE));
         List<UUID> performerIds = resolvePerformerSlots(requestedIds, allPlayers, identity.playerId(), maxSlots);
 
         for (int i = 0; i < performerIds.size(); i++) {
@@ -129,7 +134,9 @@ public class PerformanceService {
                 .filter(p -> !performerIds.contains(p.getId()))
                 .collect(Collectors.toCollection(ArrayList::new));
         Collections.shuffle(judgePool);
-        judgePool.stream().limit(2).forEach(p ->
+        // Assign up to MAX_JUDGES judges, but always leave at least 1 non-performer as audience.
+        int judgeCount = Math.max(MIN_JUDGES, Math.min(MAX_JUDGES, judgePool.size() - MIN_AUDIENCE));
+        judgePool.stream().limit(judgeCount).forEach(p ->
                 judgeRepo.save(new JudgeAssignment(UUID.randomUUID(), gameId,
                         performance.getId(), p.getId(), JudgeSource.ASSIGNED)));
 
@@ -504,14 +511,15 @@ public class PerformanceService {
     }
 
     private List<UUID> resolvePerformerSlots(List<UUID> requested, List<Player> allPlayers, UUID authorId, int maxSlots) {
-        List<UUID> result = new ArrayList<>(requested);
+        List<UUID> result = requested.stream().distinct().limit(maxSlots)
+                .collect(Collectors.toCollection(ArrayList::new));
         List<UUID> eligible = allPlayers.stream()
                 .map(Player::getId)
                 .filter(id -> !result.contains(id))
                 .filter(id -> !id.equals(authorId)) // author only joins if explicitly requested
                 .collect(Collectors.toCollection(ArrayList::new));
         Collections.shuffle(eligible);
-        int needed = Math.min(maxSlots, allPlayers.size()) - result.size();
+        int needed = maxSlots - result.size();
         for (int i = 0; i < needed && i < eligible.size(); i++) {
             result.add(eligible.get(i));
         }

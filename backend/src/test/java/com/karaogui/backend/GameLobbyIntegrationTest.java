@@ -58,11 +58,19 @@ class GameLobbyIntegrationTest {
         String guestToken = mapper.readTree(joinResult.getResponse().getContentAsString())
                 .get("sessionToken").asText();
 
+        // 2b. Third player joins (minimum 3 required to start)
+        mvc.perform(post("/api/games/join")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                        {"joinCode": "%s", "player": {"displayName": "Bob"}}
+                        """.formatted(joinCode)))
+                .andExpect(status().isCreated());
+
         // 3. Snapshot visible to both players
         mvc.perform(get("/api/games/" + gameId)
                 .header("Authorization", "Bearer " + hostToken))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.players.length()").value(2))
+                .andExpect(jsonPath("$.players.length()").value(3))
                 .andExpect(jsonPath("$.state").value("CREATED"));
 
         // 4. Display token can also read snapshot
@@ -90,7 +98,7 @@ class GameLobbyIntegrationTest {
         mvc.perform(get("/api/games/" + gameId + "/players")
                 .header("Authorization", "Bearer " + hostToken))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.length()").value(2));
+                .andExpect(jsonPath("$.length()").value(3));
 
         // 9. My player
         mvc.perform(get("/api/games/" + gameId + "/players/me")
@@ -102,7 +110,7 @@ class GameLobbyIntegrationTest {
         mvc.perform(get("/api/games/" + gameId + "/ranking")
                 .header("Authorization", "Bearer " + hostToken))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.totalPlayers").value(2));
+                .andExpect(jsonPath("$.totalPlayers").value(3));
     }
 
     @Test

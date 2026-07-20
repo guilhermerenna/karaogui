@@ -33,17 +33,24 @@ pkill -f "ng serve" 2>/dev/null; sleep 1
 
 # Start both (from frontend/)
 cd frontend
-npx ng serve --project phone --port 4201 --no-open &
-npx ng serve --project tv    --port 4200 --no-open &
+npx ng serve --project phone --port 4201 --host 0.0.0.0 --no-open &
+npx ng serve --project tv    --port 4200 --host 0.0.0.0 --no-open &
 ```
+
+**Always start dev servers with `--host 0.0.0.0`.** Without it, `ng serve` binds to
+loopback (`[::1]`) only and the TV/phones cannot be reached over the LAN via the host's
+IP (e.g. `http://10.0.0.17:4200`). The servers must always be network-accessible, not
+localhost-only. The frontend derives the backend host from `window.location.hostname`,
+so accessing via IP automatically targets the backend at the same IP — no other config
+needed.
 
 Wait for both to print "Application bundle generation complete" before opening the browser.
 
-| Service  | URL                        |
-|----------|----------------------------|
-| Phone    | http://localhost:4201      |
-| TV       | http://localhost:4200      |
-| Backend  | http://localhost:8080      |
+| Service  | Local URL                  | Network URL (replace with host IP) |
+|----------|----------------------------|------------------------------------|
+| Phone    | http://localhost:4201      | http://10.0.0.17:4201              |
+| TV       | http://localhost:4200      | http://10.0.0.17:4200              |
+| Backend  | http://localhost:8080      | http://10.0.0.17:8080              |
 
 ## Running backend tests
 

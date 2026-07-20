@@ -222,10 +222,10 @@ const CRITERIA = ['PITCH', 'ENERGY', 'STAGE_PRESENCE'] as const;
               <div style="margin-bottom:.5rem">
                 <label style="display:flex;align-items:center;gap:.75rem;font-size:.85rem">
                   <span style="white-space:nowrap">Performers: <strong>{{ slotCount() }}</strong></span>
-                  <input type="range" min="1" [max]="rt.players$().length"
+                  <input type="range" min="1" [max]="maxPerformers()"
                     [value]="slotCount()" (input)="setSlotCount(+$any($event.target).value)"
                     style="flex:1" />
-                  <span style="color:#9ca3af;font-size:.75rem">max {{ rt.players$().length }}</span>
+                  <span style="color:#9ca3af;font-size:.75rem">max {{ maxPerformers() }}</span>
                 </label>
               </div>
               <div style="margin-bottom:.75rem">
@@ -297,7 +297,9 @@ export class PerformanceComponent implements OnInit, OnDestroy {
 
   queueUrl = '';
   selectedPerformers = signal<Set<string>>(new Set());
-  slotCount = signal(2);
+  slotCount = signal(1);
+  // Reserve at least 1 judge and 1 audience member: performers <= players - 2.
+  readonly maxPerformers = computed(() => Math.max(1, this.rt.players$().length - 2));
   queuing = signal(false);
   queueError = signal('');
   previewEmbedUrl = signal<SafeResourceUrl | null>(null);
@@ -437,10 +439,11 @@ export class PerformanceComponent implements OnInit, OnDestroy {
   }
 
   setSlotCount(n: number) {
-    this.slotCount.set(n);
+    const clamped = Math.max(1, Math.min(n, this.maxPerformers()));
+    this.slotCount.set(clamped);
     // drop checked players beyond the new cap
-    if (this.selectedPerformers().size > n) {
-      const kept = [...this.selectedPerformers()].slice(0, n);
+    if (this.selectedPerformers().size > clamped) {
+      const kept = [...this.selectedPerformers()].slice(0, clamped);
       this.selectedPerformers.set(new Set(kept));
     }
   }
@@ -486,7 +489,7 @@ export class PerformanceComponent implements OnInit, OnDestroy {
         this.previewEmbedUrl.set(null);
         this.queueUrl = '';
         this.selectedPerformers.set(new Set());
-        this.slotCount.set(2);
+        this.slotCount.set(1);
       },
       error: (err: HttpErrorResponse) => {
         this.queuing.set(false);

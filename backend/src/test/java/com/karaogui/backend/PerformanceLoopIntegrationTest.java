@@ -82,6 +82,17 @@ class PerformanceLoopIntegrationTest {
         String bobToken = mapper.readTree(joinBob.getResponse().getContentAsString()).get("sessionToken").asText();
         String bobId = mapper.readTree(joinBob.getResponse().getContentAsString()).get("you").get("playerId").asText();
 
+        // Cara joins as audience so a 2-performer karaoke keeps 1 judge (Host) + 1 audience (Cara)
+        MvcResult joinCara = mvc.perform(post("/api/games/join")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                        {"joinCode": "%s", "player": {"displayName": "Cara"}}
+                        """.formatted(joinCode)))
+                .andExpect(status().isCreated())
+                .andReturn();
+        String caraToken = mapper.readTree(joinCara.getResponse().getContentAsString()).get("sessionToken").asText();
+        String caraId = mapper.readTree(joinCara.getResponse().getContentAsString()).get("you").get("playerId").asText();
+
         // 3. Host starts game
         mvc.perform(post("/api/games/" + gameId + "/start")
                 .header("Authorization", "Bearer " + hostToken))
@@ -131,6 +142,12 @@ class PerformanceLoopIntegrationTest {
         String performanceId = queueBody.get("performanceId").asText();
         assertThat(performanceId).isNotBlank();
 
+        // Exactly one judge is assigned (Host or Cara); resolve its token for the eval step.
+        JsonNode judges = queueBody.get("judges");
+        assertThat(judges.size()).isEqualTo(1);
+        String judgeId = judges.get(0).get("judgePlayerId").asText();
+        String judgeToken = judgeId.equals(caraId) ? caraToken : hostToken;
+
         // 6. TV receives PERFORMANCE_ANNOUNCED
         JsonNode announced = performers.poll(5, TimeUnit.SECONDS);
         assertThat(announced).isNotNull();
@@ -168,9 +185,9 @@ class PerformanceLoopIntegrationTest {
         assertThat(startedEvent).isNotNull();
         assertThat(startedEvent.get("type").asText()).isEqualTo("PERFORMANCE_STARTED");
 
-        // 9. Host (only non-performer judge) submits evaluation
+        // 9. The assigned judge submits evaluation
         mvc.perform(post("/api/games/" + gameId + "/performances/" + performanceId + "/evaluate")
-                .header("Authorization", "Bearer " + hostToken)
+                .header("Authorization", "Bearer " + judgeToken)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("""
                         {

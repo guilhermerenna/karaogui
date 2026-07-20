@@ -36,6 +36,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class GameService {
 
     private static final int MAX_JOIN_CODE_ATTEMPTS = 10;
+    private static final int MIN_PLAYERS_TO_START = 3;
 
     private final GameRepository gameRepo;
     private final PlayerRepository playerRepo;
@@ -170,10 +171,16 @@ public class GameService {
             throw new GameStateException("GAME_ALREADY_STARTED", "Game is not in CREATED state.");
         }
 
+        List<Player> players = playerRepo.findAllByGameIdOrderByScoreDesc(gameId);
+        // A performance needs at least 1 performer, 1 judge, and 1 audience member.
+        if (players.size() < MIN_PLAYERS_TO_START) {
+            throw new GameStateException("NOT_ENOUGH_PLAYERS",
+                    "At least " + MIN_PLAYERS_TO_START + " players are needed to start the game.");
+        }
+
         game.setState(GameState.ACTIVE);
         game.setStartedAt(Instant.now());
 
-        List<Player> players = playerRepo.findAllByGameIdOrderByScoreDesc(gameId);
         long seqState = game.incrementAndGetSeq();
         long seqRanking = game.incrementAndGetSeq();
         gameRepo.save(game);

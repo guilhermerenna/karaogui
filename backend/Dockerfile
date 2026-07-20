@@ -17,6 +17,9 @@ RUN ./gradlew bootJar --no-daemon -q
 # Runtime stage: JRE only
 FROM eclipse-temurin:25-jre
 WORKDIR /app
+# curl is used by the compose healthcheck to probe /actuator/health
+RUN apt-get update && apt-get install -y --no-install-recommends curl \
+    && rm -rf /var/lib/apt/lists/*
 COPY --from=build /app/build/libs/*.jar app.jar
 
 EXPOSE 8080
