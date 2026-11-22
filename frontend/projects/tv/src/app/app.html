@@ -1,1 +1,7 @@
-<router-outlet />
+@if (playground()) {
+  @defer (on immediate) {
+    <app-playground />
+  }
+} @else {
+  <router-outlet />
+}

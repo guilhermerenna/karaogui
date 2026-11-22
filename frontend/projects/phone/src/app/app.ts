@@ -1,14 +1,22 @@
-import { Component, signal, effect } from '@angular/core';
+import { Component, signal } from '@angular/core';
 import { RouterOutlet, Router, NavigationEnd } from '@angular/router';
 import { filter } from 'rxjs';
+import { usePlaygroundMode } from 'ui';
+import { Playground } from './playground';
 
 @Component({
   selector: 'app-root',
-  imports: [RouterOutlet],
+  imports: [RouterOutlet, Playground],
   template: `
-    <router-outlet />
-    @if (displayName()) {
-      <div class="player-badge">{{ displayName() }}</div>
+    @if (playground()) {
+      @defer (on immediate) {
+        <app-playground />
+      }
+    } @else {
+      <router-outlet />
+      @if (displayName()) {
+        <div class="player-badge">{{ displayName() }}</div>
+      }
     }
   `,
   styles: [`
@@ -33,6 +41,7 @@ import { filter } from 'rxjs';
   `],
 })
 export class App {
+  protected readonly playground = usePlaygroundMode();
   displayName = signal<string>('');
 
   constructor(router: Router) {
