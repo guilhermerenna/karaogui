@@ -8,36 +8,7 @@ import type { SessionInfo } from 'contracts';
 @Component({
   selector: 'app-join-game',
   imports: [FormsModule, RouterLink],
-  template: `
-    <div class="page">
-      <div class="card">
-        <a routerLink="/" class="back-link">← Back</a>
-        <h2>Join a game</h2>
-        <div class="field">
-          <label for="code">Join code</label>
-          <input
-            id="code"
-            type="text"
-            [(ngModel)]="joinCode"
-            placeholder="ABC123"
-            maxlength="7"
-            style="letter-spacing:.15em;text-transform:uppercase;font-size:1.25rem"
-            (input)="formatCode($event)"
-          />
-        </div>
-        <div class="field">
-          <label for="name">Your display name</label>
-          <input id="name" type="text" [(ngModel)]="displayName" placeholder="e.g. Star Dancer" maxlength="50" />
-        </div>
-        <button class="btn btn-primary" [disabled]="!canSubmit() || loading()" (click)="join()">
-          {{ loading() ? 'Joining…' : 'Join game' }}
-        </button>
-        @if (error()) {
-          <p class="error-msg">{{ error() }}</p>
-        }
-      </div>
-    </div>
-  `,
+  templateUrl: './join-game.html',
 })
 export class JoinGameComponent {
   joinCode = '';

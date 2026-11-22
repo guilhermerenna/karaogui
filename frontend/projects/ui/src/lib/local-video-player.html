@@ -1,0 +1,19 @@
+<div class="video-wrapper">
+  <video
+    #videoEl
+    class="video-element"
+    [src]="streamUrl()"
+    autoplay
+    playsinline
+    controls
+    (play)="autoplayBlocked.set(false)"
+    (error)="onVideoError()">
+  </video>
+
+  @if (autoplayBlocked()) {
+    <button type="button" class="autoplay-overlay" (click)="resumePlayback()">
+      <span class="autoplay-icon">▶</span>
+      <span>Click to start playback</span>
+    </button>
+  }
+</div>

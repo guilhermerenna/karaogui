@@ -1,0 +1,16 @@
+.btn-back {
+  position: fixed;
+  top: 1.25rem;
+  left: 1.25rem;
+  background: rgba(99,102,241,.12);
+  color: #6366f1;
+  border: 1px solid rgba(99,102,241,.3);
+  border-radius: 2rem;
+  padding: .5rem 1.1rem;
+  font-size: .85rem;
+  font-weight: 600;
+  cursor: pointer;
+  z-index: 1000;
+  backdrop-filter: blur(4px);
+}
+.btn-back:hover { background: rgba(99,102,241,.22); }

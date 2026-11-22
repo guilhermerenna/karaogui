@@ -1,0 +1,204 @@
+.tv-page {
+  min-height: 100dvh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem;
+}
+.tv-waiting {
+  text-align: center;
+}
+.tv-title {
+  font-size: 4rem;
+  font-weight: 800;
+  color: #a5b4fc;
+  margin-bottom: 1rem;
+}
+.tv-subtitle {
+  font-size: 1.5rem;
+  color: #9ca3af;
+}
+.tv-content {
+  display: grid;
+  grid-template-columns: 1fr 300px;
+  gap: 3rem;
+  align-items: stretch;
+  width: 100%;
+  max-width: 1400px;
+}
+.tv-center {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 60vh;
+}
+.tv-center-idle { text-align: center; }
+.tv-right {
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+}
+
+.tv-label {
+  font-size: .875rem;
+  text-transform: uppercase;
+  letter-spacing: .15em;
+  color: #6b7280;
+  margin-bottom: .5rem;
+}
+.tv-join-code {
+  font-size: 3rem;
+  font-weight: 900;
+  letter-spacing: .2em;
+  color: #a5b4fc;
+  line-height: 1;
+  margin-bottom: 1.5rem;
+  white-space: nowrap;
+}
+.tv-state-badge {
+  display: inline-block;
+  padding: .5rem 1.25rem;
+  border-radius: 2rem;
+  background: #1e293b;
+  color: #94a3b8;
+  font-size: .9rem;
+  margin-bottom: 1.5rem;
+}
+.tv-state-badge.active { background: #14532d; color: #86efac; }
+
+.tv-slot-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: .6rem 1rem;
+  border-radius: 8px;
+  background: #1e293b;
+}
+.tv-slot-card.confirmed { background: #14532d; }
+.tv-slot-card.pending { background: #422006; }
+.tv-slot-name { font-size: 1rem; font-weight: 600; }
+.tv-slot-badge { font-size: .75rem; color: #94a3b8; }
+
+.tv-player-list { list-style: none; margin: 0; padding: 0; }
+.tv-player {
+  display: flex;
+  align-items: center;
+  gap: .75rem;
+  padding: .6rem 0;
+  border-bottom: 1px solid #1e293b;
+  font-size: 1.1rem;
+}
+.tv-player-name { flex: 1; font-weight: 500; }
+.tv-host-badge { font-size: .75rem; background: #6366f1; color: #fff; border-radius: 4px; padding: .1rem .4rem; }
+
+.tv-perf-banner {
+  width: 100%;
+  border-radius: 16px;
+  padding: 3rem 2rem;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+.tv-perf-banner.confirming { background: #1e1b4b; }
+.tv-perf-banner.running { background: #052e16; }
+.tv-perf-banner.locked { background: #1e293b; }
+
+.tv-perf-title {
+  font-size: 2.5rem;
+  font-weight: 800;
+  color: #e2e8f0;
+}
+.tv-countdown {
+  font-size: 6rem;
+  font-weight: 900;
+  color: #f59e0b;
+  line-height: 1;
+  margin-top: .5rem;
+}
+.tv-score-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: #0f172a;
+  border-radius: 8px;
+  padding: .75rem 1.25rem;
+}
+.tv-score-name { font-size: 1.5rem; font-weight: 600; color: #e2e8f0; }
+.tv-score-pts { font-size: 2rem; font-weight: 800; color: #a5b4fc; }
+
+.tv-rank-list { list-style: none; margin: 0; padding: 0; }
+.tv-rank-entry {
+  display: flex;
+  align-items: center;
+  gap: .75rem;
+  padding: .75rem 0;
+  border-bottom: 1px solid #1e293b;
+  font-size: 1.1rem;
+}
+.tv-rank-pos {
+  width: 2rem;
+  text-align: center;
+  font-weight: 700;
+  color: #6366f1;
+  font-size: 1.25rem;
+}
+.tv-rank-name { flex: 1; font-weight: 500; }
+.tv-rank-score { color: #6b7280; font-size: .9rem; }
+
+.tv-comments { display: flex; flex-direction: column; gap: .5rem; }
+.tv-comment {
+  background: #1e293b;
+  border-radius: 8px;
+  padding: .5rem .75rem;
+  font-size: .85rem;
+  display: flex;
+  flex-direction: column;
+  gap: .15rem;
+}
+.tv-comment-author { font-weight: 700; color: #a5b4fc; font-size: .75rem; }
+.tv-comment-body { color: #e2e8f0; line-height: 1.4; }
+.tv-comment-likes { color: #f87171; font-size: .75rem; }
+
+.tv-progress-track {
+  width: 100%;
+  margin-top: 1.5rem;
+  height: 2.5rem;
+  border-radius: 999px;
+  background: #0f172a;
+  overflow: hidden;
+  position: relative;
+}
+.tv-progress-fill {
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #6366f1, #a5b4fc);
+  transition: width 0.5s linear;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  min-width: 3rem;
+}
+.tv-progress-label {
+  color: #fff;
+  font-size: 1rem;
+  font-weight: 700;
+  padding-right: .75rem;
+  white-space: nowrap;
+}
+.tv-judge-overlay {
+  position: fixed;
+  top: 2rem;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 50;
+  background: #1e1b4b;
+  border-radius: 16px;
+  padding: 2rem 3rem;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  box-shadow: 0 8px 32px rgba(0,0,0,.6);
+  min-width: 320px;
+}

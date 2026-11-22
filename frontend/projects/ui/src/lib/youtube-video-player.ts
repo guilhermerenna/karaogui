@@ -10,26 +10,8 @@ import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
 @Component({
   selector: 'ui-youtube-video-player',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  template: `
-    @if (embedUrl()) {
-      <iframe
-        class="video-frame"
-        [src]="embedUrl()!"
-        allow="autoplay; encrypted-media"
-        allowfullscreen>
-      </iframe>
-    }
-  `,
-  styles: [`
-    .video-frame {
-      display: block;
-      width: 100%;
-      aspect-ratio: 16 / 9;
-      border: none;
-      border-radius: 8px;
-      background: #000;
-    }
-  `],
+  templateUrl: './youtube-video-player.html',
+  styleUrl: './youtube-video-player.scss',
 })
 export class YoutubeVideoPlayerComponent {
   private readonly sanitizer = inject(DomSanitizer);

@@ -1,1 +1,10 @@
-<router-outlet />
+@if (playground()) {
+  @defer (on immediate) {
+    <app-playground />
+  }
+} @else {
+  <router-outlet />
+  @if (displayName()) {
+    <div class="player-badge">{{ displayName() }}</div>
+  }
+}
