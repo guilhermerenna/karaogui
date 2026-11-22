@@ -1,0 +1,10 @@
+# this file is intended for local development only
+# to deploy this to production, refer to the regular file instead: docker-compose.yml
+services:
+  backend:
+    build: ./backend
+    pull_policy: build
+
+  frontend:
+    build: ./frontend
+    pull_policy: build

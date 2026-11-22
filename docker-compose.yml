@@ -17,6 +17,7 @@ services:
 
   backend:
     image: ghcr.io/guilhermerenna/karaogui-backend:latest
+    pull_policy: always
     restart: unless-stopped
     depends_on:
       postgres:
@@ -41,6 +42,7 @@ services:
 
   frontend:
     image: ghcr.io/guilhermerenna/karaogui-frontend:latest
+    pull_policy: always
     restart: unless-stopped
     depends_on:
       backend:

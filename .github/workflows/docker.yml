@@ -40,6 +40,7 @@ jobs:
           context: ./backend
           file: ./backend/Dockerfile
           platforms: linux/amd64
+          provenance: false
           push: true
           tags: |
             ${{ steps.images.outputs.backend }}:latest
@@ -51,6 +52,7 @@ jobs:
           context: ./frontend
           file: ./frontend/Dockerfile
           platforms: linux/amd64
+          provenance: false
           push: true
           tags: |
             ${{ steps.images.outputs.frontend }}:latest
