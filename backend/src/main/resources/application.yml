@@ -20,6 +20,9 @@ management:
 
 # All game-balance / tunable values live under this namespace (see docs/Technical/T08).
 karaogui:
+  videos:
+    root-dir: ${VIDEOS_ROOT_DIR:/videos}
+    stream-chunk-size: 1MB
   youtube:
     api-key: ${YOUTUBE_API_KEY:}
     judging-grace: 30s

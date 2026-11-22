@@ -172,5 +172,104 @@ class VideoLibraryIntegrationTest {
         JsonNode current = mapper.readTree(snap.getResponse().getContentAsString()).get("currentPerformance");
         assertThat(current).isNotNull();
         assertThat(current.get("durationSeconds").asLong()).isEqualTo(123L);
+        // YouTube-only video has no local file, so videoId in performance payloads is null.
+        assertThat(current.get("videoId").isNull()).isTrue();
+    }
+
+    @Test
+    void registerLocalVideo_createsLocalOnlyAndSurfacesVideoIdOnPerformance() throws Exception {
+        Game game = createGameWithPlayers();
+        join(game.joinCode(), "Ana");
+        join(game.joinCode(), "Bob");
+
+        // Register a local-only video using a full container path (no auth required).
+        MvcResult reg = mvc.perform(post("/api/videos/local")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                        {"videoUrl": "/videos/queen/bohemian.mp4", "songTitle": "Bohemian Rhapsody", "artist": "Queen", "durationSeconds": 355}
+                        """))
+                .andExpect(status().isCreated())
+                .andReturn();
+        JsonNode regBody = mapper.readTree(reg.getResponse().getContentAsString());
+        String videoId = regBody.get("videoId").asText();
+        assertThat(regBody.get("hasLocalFile").asBoolean()).isTrue();
+        assertThat(regBody.get("youtubeUrl").isNull()).isTrue();
+        assertThat(regBody.get("videoName").asText()).isEqualTo("bohemian");
+
+        // Idempotent when re-registered via file:// URL pointing to the same file.
+        MvcResult regAgain = mvc.perform(post("/api/videos/local")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                        {"videoUrl": "file:///videos/queen/bohemian.mp4"}
+                        """))
+                .andExpect(status().isCreated())
+                .andReturn();
+        assertThat(mapper.readTree(regAgain.getResponse().getContentAsString()).get("videoId").asText())
+                .isEqualTo(videoId);
+
+        // Path traversal outside /videos is rejected.
+        mvc.perform(post("/api/videos/local")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                        {"videoUrl": "../../etc/passwd"}
+                        """))
+                .andExpect(status().isConflict());
+
+        mvc.perform(post("/api/games/" + game.gameId() + "/start")
+                .header("Authorization", "Bearer " + game.hostToken()))
+                .andExpect(status().isOk());
+
+        // Queueing the local video surfaces videoId on both PerformanceDetailDto and CurrentPerformanceDto.
+        MvcResult queued = mvc.perform(post("/api/games/" + game.gameId() + "/performances")
+                .header("Authorization", "Bearer " + game.hostToken())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                        {"type": "KARAOKE", "videoId": "%s"}
+                        """.formatted(videoId)))
+                .andExpect(status().isCreated())
+                .andReturn();
+        JsonNode detail = mapper.readTree(queued.getResponse().getContentAsString());
+        assertThat(detail.get("videoId").asText()).isEqualTo(videoId);
+        assertThat(detail.get("youtubeUrl").isNull()).isTrue();
+
+        MvcResult snap = mvc.perform(get("/api/games/" + game.gameId())
+                .header("Authorization", "Bearer " + game.hostToken()))
+                .andExpect(status().isOk())
+                .andReturn();
+        JsonNode current = mapper.readTree(snap.getResponse().getContentAsString()).get("currentPerformance");
+        assertThat(current.get("videoId").asText()).isEqualTo(videoId);
+        assertThat(current.get("durationSeconds").asLong()).isEqualTo(355L);
+
+        // Deleting a played video succeeds (ON DELETE SET NULL on performance.video_id).
+        mvc.perform(delete("/api/videos/" + videoId)
+                .header("Authorization", "Bearer " + game.hostToken()))
+                .andExpect(status().isNoContent());
+    }
+
+    @Test
+    void registerLocalVideo_attachesLocalPathToExistingYoutubeVideo() throws Exception {
+        Game game = createGameWithPlayers();
+
+        MvcResult imported = mvc.perform(post("/api/videos")
+                .header("Authorization", "Bearer " + game.hostToken())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                        {"youtubeUrl": "https://youtu.be/hybrid123", "songTitle": "Hybrid Song"}
+                        """))
+                .andExpect(status().isCreated())
+                .andReturn();
+        String videoId = mapper.readTree(imported.getResponse().getContentAsString()).get("videoId").asText();
+
+        MvcResult attached = mvc.perform(post("/api/videos/local")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                        {"videoId": "%s", "videoUrl": "hybrid-song.mp4"}
+                        """.formatted(videoId)))
+                .andExpect(status().isCreated())
+                .andReturn();
+        JsonNode attachedBody = mapper.readTree(attached.getResponse().getContentAsString());
+        assertThat(attachedBody.get("videoId").asText()).isEqualTo(videoId);
+        assertThat(attachedBody.get("hasLocalFile").asBoolean()).isTrue();
+        assertThat(attachedBody.get("youtubeUrl").asText()).isEqualTo("https://youtu.be/hybrid123");
     }
 }

@@ -2,6 +2,7 @@ package com.karaogui.backend.video;
 
 import com.karaogui.backend.auth.PlayerIdentity;
 import com.karaogui.backend.video.dto.ImportVideoRequest;
+import com.karaogui.backend.video.dto.RegisterLocalVideoRequest;
 import com.karaogui.backend.video.dto.VideoDto;
 import com.karaogui.backend.video.dto.VideoSearchResponse;
 import java.util.UUID;
@@ -37,6 +38,12 @@ class VideoController {
     @ResponseStatus(HttpStatus.CREATED)
     VideoDto importVideo(PlayerIdentity identity, @RequestBody ImportVideoRequest req) {
         return videoService.importVideo(identity, req);
+    }
+
+    @PostMapping("/local")
+    @ResponseStatus(HttpStatus.CREATED)
+    VideoDto registerLocal(@RequestBody RegisterLocalVideoRequest req) {
+        return videoService.registerLocalVideo(req);
     }
 
     @DeleteMapping("/{videoId}")

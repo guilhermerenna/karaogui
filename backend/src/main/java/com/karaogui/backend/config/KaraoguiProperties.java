@@ -1,11 +1,14 @@
 package com.karaogui.backend.config;
 
+import java.nio.file.Path;
 import java.time.Duration;
 import java.util.List;
 import org.springframework.boot.context.properties.ConfigurationProperties;
+import org.springframework.util.unit.DataSize;
 
 @ConfigurationProperties("karaogui")
 public record KaraoguiProperties(
+        Videos videos,
         Youtube youtube,
         Timers timers,
         Scoreboard scoreboard,
@@ -13,6 +16,10 @@ public record KaraoguiProperties(
         Scoring scoring,
         Challenge challenge,
         Features features) {
+
+    public record Videos(
+            Path rootDir,
+            DataSize streamChunkSize) {}
 
     public record Youtube(
             String apiKey,

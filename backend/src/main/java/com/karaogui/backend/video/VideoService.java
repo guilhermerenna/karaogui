@@ -8,9 +8,12 @@ import com.karaogui.backend.performance.YoutubeMetadataClient;
 import com.karaogui.backend.player.Player;
 import com.karaogui.backend.player.PlayerRepository;
 import com.karaogui.backend.video.dto.ImportVideoRequest;
+import com.karaogui.backend.video.dto.RegisterLocalVideoRequest;
 import com.karaogui.backend.video.dto.VideoDto;
 import com.karaogui.backend.video.dto.VideoSearchResponse;
+import com.karaogui.backend.video.storage.VideoStorage;
 import jakarta.persistence.EntityNotFoundException;
+import java.nio.file.Path;
 import java.time.Clock;
 import java.util.List;
 import java.util.UUID;
@@ -26,13 +29,15 @@ public class VideoService {
     private final VideoRepository videoRepo;
     private final PlayerRepository playerRepo;
     private final YoutubeMetadataClient youtubeClient;
+    private final VideoStorage videoStorage;
     private final Clock clock;
 
     public VideoService(VideoRepository videoRepo, PlayerRepository playerRepo,
-            YoutubeMetadataClient youtubeClient, Clock clock) {
+            YoutubeMetadataClient youtubeClient, VideoStorage videoStorage, Clock clock) {
         this.videoRepo = videoRepo;
         this.playerRepo = playerRepo;
         this.youtubeClient = youtubeClient;
+        this.videoStorage = videoStorage;
         this.clock = clock;
     }
 
@@ -82,6 +87,61 @@ public class VideoService {
         return toDto(videoRepo.save(video));
     }
 
+    @Transactional
+    public VideoDto registerLocalVideo(RegisterLocalVideoRequest req) {
+        String localPath;
+        try {
+            localPath = videoStorage.normalizeToRelativePath(req.videoUrl());
+        } catch (IllegalArgumentException e) {
+            throw new GameStateException("INVALID_VIDEO_PATH", e.getMessage());
+        }
+
+        String songTitle = blankToNull(req.songTitle());
+        String artist = blankToNull(req.artist());
+        String videoName = blankToNull(req.videoName());
+        Long durationSeconds = req.durationSeconds();
+
+        if (req.videoId() != null) {
+            Video existing = videoRepo.findById(req.videoId())
+                    .orElseThrow(() -> new EntityNotFoundException("Video not found: " + req.videoId()));
+            existing.setLocalPath(localPath);
+            applyOptionalMetadata(existing, videoName, songTitle, artist, durationSeconds);
+            return toDto(videoRepo.save(existing));
+        }
+
+        String youtubeUrl = blankToNull(req.youtubeUrl());
+        String youtubeId = null;
+        if (youtubeUrl != null) {
+            youtubeId = YoutubeMetadataClient.extractId(youtubeUrl);
+            if (youtubeId == null) {
+                throw new GameStateException("NOT_A_YOUTUBE_VIDEO",
+                        "This YouTube link can't be used. Please check the video and try another.");
+            }
+        }
+
+        var byPath = videoRepo.findByLocalPath(localPath);
+        if (byPath.isPresent()) {
+            Video existing = byPath.get();
+            applyOptionalMetadata(existing, videoName, songTitle, artist, durationSeconds);
+            return toDto(videoRepo.save(existing));
+        }
+
+        if (youtubeId != null) {
+            var byYoutube = videoRepo.findByYoutubeId(youtubeId);
+            if (byYoutube.isPresent()) {
+                Video existing = byYoutube.get();
+                existing.setLocalPath(localPath);
+                applyOptionalMetadata(existing, videoName, songTitle, artist, durationSeconds);
+                return toDto(videoRepo.save(existing));
+            }
+        }
+
+        String resolvedName = videoName != null ? videoName : defaultNameFromPath(localPath);
+        Video video = new Video(UUID.randomUUID(), youtubeId, youtubeUrl, localPath, resolvedName,
+                null, songTitle, artist, durationSeconds, clock.instant(), null);
+        return toDto(videoRepo.save(video));
+    }
+
     @Transactional(readOnly = true)
     public VideoSearchResponse search(PlayerIdentity identity, String query, int page) {
         ScopeGuard.requireScope(identity, identity.gameId());
@@ -117,8 +177,35 @@ public class VideoService {
     }
 
     private VideoDto toDto(Video v) {
-        return new VideoDto(v.getId(), v.getYoutubeUrl(), v.getVideoName(), v.getThumbnailUrl(),
-                v.getSongTitle(), v.getArtist(), v.getDurationSeconds());
+        boolean hasLocalFile = v.getLocalPath() != null && !v.getLocalPath().isBlank();
+        return new VideoDto(v.getId(), v.getYoutubeUrl(), hasLocalFile, v.getVideoName(),
+                v.getThumbnailUrl(), v.getSongTitle(), v.getArtist(), v.getDurationSeconds());
+    }
+
+    private static void applyOptionalMetadata(Video video, String videoName, String songTitle,
+            String artist, Long durationSeconds) {
+        if (videoName != null) {
+            video.setVideoName(videoName);
+        }
+        if (songTitle != null) {
+            video.setSongTitle(songTitle);
+        }
+        if (artist != null) {
+            video.setArtist(artist);
+        }
+        if (durationSeconds != null) {
+            video.setDurationSeconds(durationSeconds);
+        }
+    }
+
+    private static String defaultNameFromPath(String localPath) {
+        Path fileName = Path.of(localPath).getFileName();
+        if (fileName == null) {
+            return localPath;
+        }
+        String name = fileName.toString();
+        int dot = name.lastIndexOf('.');
+        return dot > 0 ? name.substring(0, dot) : name;
     }
 
     private static String blankToNull(String s) {

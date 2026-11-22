@@ -5,6 +5,7 @@ import java.util.UUID;
 public record VideoDto(
         UUID videoId,
         String youtubeUrl,
+        boolean hasLocalFile,
         String videoName,
         String thumbnailUrl,
         String songTitle,

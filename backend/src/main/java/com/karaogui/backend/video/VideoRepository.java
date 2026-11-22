@@ -12,6 +12,8 @@ public interface VideoRepository extends JpaRepository<Video, UUID> {
 
     Optional<Video> findByYoutubeId(String youtubeId);
 
+    Optional<Video> findByLocalPath(String localPath);
+
     @Query("""
             SELECT v FROM Video v
             WHERE LOWER(COALESCE(v.videoName, '')) LIKE LOWER(CONCAT('%', :q, '%'))

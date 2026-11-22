@@ -105,12 +105,14 @@ public class PerformanceService {
         }
         PerformanceType type = PerformanceType.valueOf(req.type());
 
+        UUID videoId = null;
         String youtubeUrl;
         Long durationSeconds;
         if (req.videoId() != null) {
-            // Queue from a library video: reuse the stored URL and duration, skip the YouTube round-trip.
+            // Queue from a library video: reuse the stored URL, videoId, and duration, skip the YouTube round-trip.
             Video video = videoRepo.findById(req.videoId())
                     .orElseThrow(() -> new EntityNotFoundException("Video not found: " + req.videoId()));
+            videoId = video.getId();
             youtubeUrl = video.getYoutubeUrl();
             durationSeconds = video.getDurationSeconds();
         } else if (req.youtubeUrl() != null && !req.youtubeUrl().isBlank()) {
@@ -133,6 +135,9 @@ public class PerformanceService {
         Performance performance = new Performance(
                 gameId, type, nextQueuePos, gameLocalNumber,
                 identity.playerId(), youtubeUrl);
+        if (videoId != null) {
+            performance.setVideoId(videoId);
+        }
         if (durationSeconds != null) {
             performance.setDurationSeconds(durationSeconds);
         }
@@ -390,7 +395,8 @@ public class PerformanceService {
 
         eventPublisher.publishEvent(new GameDomainEvent.PerformanceAnnounced(
                 this, game.getId(), seq, perf.getId(), perf.getType().name(),
-                slotInfos, judgeNames, judgePlayerIds, perf.getYoutubeUrl(), perf.getConfirmDeadlineAt()));
+                slotInfos, judgeNames, judgePlayerIds, resolveStreamableVideoId(perf),
+                perf.getYoutubeUrl(), perf.getConfirmDeadlineAt()));
     }
 
     private void announceNextQueued(Game game) {
@@ -573,8 +579,8 @@ public class PerformanceService {
 
         return new PerformanceDetailDto(
                 perf.getId(), perf.getType().name(), perf.getState().name(),
-                perf.getYoutubeUrl(), perf.getConfirmDeadlineAt(), perf.getReplacementOpensAt(),
-                slotDtos, judgeDtos, evalSubmitted, ratingSubmitted);
+                resolveStreamableVideoId(perf), perf.getYoutubeUrl(), perf.getConfirmDeadlineAt(),
+                perf.getReplacementOpensAt(), slotDtos, judgeDtos, evalSubmitted, ratingSubmitted);
     }
 
     CurrentPerformanceDto toCurrentDto(Performance perf, List<PerformerSlot> slots) {
@@ -588,9 +594,23 @@ public class PerformanceService {
                 .toList();
         return new CurrentPerformanceDto(
                 perf.getId(), perf.getType().name(), perf.getState().name(),
-                perf.getYoutubeUrl(), perf.getConfirmDeadlineAt(), perf.getReplacementOpensAt(),
-                slotDtos, judgePlayerIds, perf.getDurationSeconds(), perf.getJudgingDeadlineAt(),
-                perf.getStartedAt());
+                resolveStreamableVideoId(perf), perf.getYoutubeUrl(), perf.getConfirmDeadlineAt(),
+                perf.getReplacementOpensAt(), slotDtos, judgePlayerIds, perf.getDurationSeconds(),
+                perf.getJudgingDeadlineAt(), perf.getStartedAt());
+    }
+
+    /**
+     * Returns the video ID only when the linked library video has a local file path configured
+     * so clients know the backend can stream it locally.
+     */
+    private UUID resolveStreamableVideoId(Performance perf) {
+        if (perf.getVideoId() == null) {
+            return null;
+        }
+        return videoRepo.findById(perf.getVideoId())
+                .filter(v -> v.getLocalPath() != null && !v.getLocalPath().isBlank())
+                .map(Video::getId)
+                .orElse(null);
     }
 
     private Map<UUID, String> buildPlayerNameMap(UUID gameId) {

@@ -15,11 +15,14 @@ public class Video {
     @Id
     private UUID id;
 
-    @Column(name = "youtube_id", nullable = false, unique = true)
+    @Column(name = "youtube_id", unique = true)
     private String youtubeId;
 
-    @Column(name = "youtube_url", nullable = false)
+    @Column(name = "youtube_url")
     private String youtubeUrl;
+
+    @Column(name = "local_path")
+    private String localPath;
 
     @Column(name = "video_name")
     private String videoName;
@@ -49,9 +52,17 @@ public class Video {
 
     public Video(UUID id, String youtubeId, String youtubeUrl, String videoName, String thumbnailUrl,
             String songTitle, String artist, Long durationSeconds, Instant createdAt, UUID createdByPlayerId) {
+        this(id, youtubeId, youtubeUrl, null, videoName, thumbnailUrl, songTitle, artist,
+                durationSeconds, createdAt, createdByPlayerId);
+    }
+
+    public Video(UUID id, String youtubeId, String youtubeUrl, String localPath, String videoName,
+            String thumbnailUrl, String songTitle, String artist, Long durationSeconds,
+            Instant createdAt, UUID createdByPlayerId) {
         this.id = id;
         this.youtubeId = youtubeId;
         this.youtubeUrl = youtubeUrl;
+        this.localPath = localPath;
         this.videoName = videoName;
         this.thumbnailUrl = thumbnailUrl;
         this.songTitle = songTitle;
@@ -64,6 +75,7 @@ public class Video {
     public UUID getId() { return id; }
     public String getYoutubeId() { return youtubeId; }
     public String getYoutubeUrl() { return youtubeUrl; }
+    public String getLocalPath() { return localPath; }
     public String getVideoName() { return videoName; }
     public String getThumbnailUrl() { return thumbnailUrl; }
     public String getSongTitle() { return songTitle; }
@@ -72,6 +84,9 @@ public class Video {
     public Instant getCreatedAt() { return createdAt; }
     public UUID getCreatedByPlayerId() { return createdByPlayerId; }
 
+    public void setLocalPath(String localPath) { this.localPath = localPath; }
+    public void setVideoName(String videoName) { this.videoName = videoName; }
     public void setSongTitle(String songTitle) { this.songTitle = songTitle; }
     public void setArtist(String artist) { this.artist = artist; }
+    public void setDurationSeconds(Long durationSeconds) { this.durationSeconds = durationSeconds; }
 }

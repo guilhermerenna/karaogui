@@ -148,6 +148,7 @@ export class RealtimeService {
             performanceId: d.performanceId,
             type: d.type,
             state: 'CONFIRMING',
+            videoId: d.videoId ?? null,
             youtubeUrl: d.youtubeUrl,
             confirmDeadlineAt: d.confirmDeadlineAt,
             replacementOpensAt: null,

@@ -241,7 +241,10 @@ const CRITERIA = ['PITCH', 'ENERGY', 'STAGE_PRESENCE'] as const;
                         <div style="width:64px;height:48px;border-radius:4px;background:#e5e7eb;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:1.2rem">🎵</div>
                       }
                       <div style="flex:1;min-width:0">
-                        @if (v.songTitle) { <div style="font-weight:600;font-size:.85rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ v.songTitle }}</div> }
+                        <div style="display:flex;align-items:center;gap:.4rem">
+                          @if (v.songTitle) { <div style="font-weight:600;font-size:.85rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ v.songTitle }}</div> }
+                          @if (v.hasLocalFile) { <span style="font-size:.65rem;font-weight:700;background:#dcfce7;color:#166534;padding:.1rem .4rem;border-radius:999px;flex-shrink:0">Local</span> }
+                        </div>
                         @if (v.artist) { <div style="font-size:.8rem;color:#555;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ v.artist }}</div> }
                         @if (v.videoName) { <div style="font-size:.75rem;color:#9ca3af;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ v.videoName }}</div> }
                       </div>

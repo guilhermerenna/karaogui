@@ -154,6 +154,10 @@ export class GameApiService {
     );
   }
 
+  getVideoStreamUrl(videoId: string): string {
+    return `${BASE}/videos/${videoId}/stream`;
+  }
+
   private authHeaders(token: string): HttpHeaders {
     return new HttpHeaders({ Authorization: `Bearer ${token}` });
   }

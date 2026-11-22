@@ -64,7 +64,8 @@ public class GameEventPublisher {
                 Instant.now(),
                 new GameEvent.PerformanceAnnouncedData(
                         event.performanceId(), event.type(), event.slots(),
-                        event.judgeNames(), event.judgePlayerIds(), event.youtubeUrl(), event.confirmDeadlineAt())));
+                        event.judgeNames(), event.judgePlayerIds(), event.videoId(),
+                        event.youtubeUrl(), event.confirmDeadlineAt())));
     }
 
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)

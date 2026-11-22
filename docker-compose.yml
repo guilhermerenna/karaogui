@@ -27,6 +27,9 @@ services:
       SPRING_DATASOURCE_USERNAME: karaogui
       SPRING_DATASOURCE_PASSWORD: <<YOUR_DB_PASSWORD>>
       YOUTUBE_API_KEY: ${YOUTUBE_API_KEY:-}
+      VIDEOS_ROOT_DIR: ${VIDEOS_ROOT_DIR:-/videos}
+    volumes:
+      - ${VIDEOS_HOST_DIR:-/mnt/apps/karaogui/videos}:/videos:ro
     ports:
       - '0.0.0.0:8080:8080'
     healthcheck:

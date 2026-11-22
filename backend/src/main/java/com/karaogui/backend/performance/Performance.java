@@ -40,6 +40,9 @@ public class Performance {
     @Column(name = "author_player_id")
     private UUID authorPlayerId;
 
+    @Column(name = "video_id")
+    private UUID videoId;
+
     @Column(name = "youtube_url")
     private String youtubeUrl;
 
@@ -87,6 +90,7 @@ public class Performance {
     public int getQueuePosition() { return queuePosition; }
     public int getGameLocalNumber() { return gameLocalNumber; }
     public UUID getAuthorPlayerId() { return authorPlayerId; }
+    public UUID getVideoId() { return videoId; }
     public String getYoutubeUrl() { return youtubeUrl; }
     public Instant getConfirmDeadlineAt() { return confirmDeadlineAt; }
     public Instant getReplacementOpensAt() { return replacementOpensAt; }
@@ -98,6 +102,7 @@ public class Performance {
     public Instant getJudgingDeadlineAt() { return judgingDeadlineAt; }
 
     public void setState(PerformanceState state) { this.state = state; }
+    public void setVideoId(UUID videoId) { this.videoId = videoId; }
     public void setConfirmDeadlineAt(Instant confirmDeadlineAt) { this.confirmDeadlineAt = confirmDeadlineAt; }
     public void setReplacementOpensAt(Instant replacementOpensAt) { this.replacementOpensAt = replacementOpensAt; }
     public void setAnnouncedAt(Instant announcedAt) { this.announcedAt = announcedAt; }

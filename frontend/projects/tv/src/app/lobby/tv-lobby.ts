@@ -1,15 +1,15 @@
 import { Component, OnDestroy, OnInit, signal, computed, effect, ChangeDetectionStrategy } from '@angular/core';
 import { ActivatedRoute } from '@angular/router';
 import { HttpErrorResponse } from '@angular/common/http';
-import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
 import { Client, IMessage } from '@stomp/stompjs';
 import { GameApiService } from 'api';
 import { RealtimeService } from 'realtime';
+import { LocalVideoPlayerComponent, YoutubeVideoPlayerComponent } from 'ui';
 
 @Component({
   selector: 'app-tv-lobby',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [],
+  imports: [LocalVideoPlayerComponent, YoutubeVideoPlayerComponent],
   template: `
     <div class="tv-page">
       @if (pairingCode()) {
@@ -84,10 +84,19 @@ import { RealtimeService } from 'realtime';
               @if (perf.state === 'RUNNING') {
                 <div class="tv-perf-banner running">
                   <div class="tv-perf-title">Performance in progress</div>
-                  @if (youtubeEmbedUrl()) {
-                    <iframe [src]="youtubeEmbedUrl()!"
-                      style="margin-top:1.25rem;border-radius:8px;border:none;width:100%;aspect-ratio:16/9"
-                      allow="autoplay; encrypted-media" allowfullscreen></iframe>
+                  @if (perf.videoId && localVideoFailedForPerfId() !== perf.performanceId) {
+                    <ui-local-video-player
+                      style="display:block;width:100%;margin-top:1.25rem"
+                      [videoId]="perf.videoId"
+                      (playbackError)="localVideoFailedForPerfId.set(perf.performanceId)" />
+                  } @else if (perf.youtubeUrl) {
+                    <ui-youtube-video-player
+                      style="display:block;width:100%;margin-top:1.25rem"
+                      [youtubeUrl]="perf.youtubeUrl" />
+                  } @else {
+                    <div style="margin-top:1.25rem;color:#94a3b8;font-size:1.1rem">
+                      Video unavailable
+                    </div>
                   }
                   <div style="font-size:1.1rem;color:#86efac;margin-top:1rem">
                     Judges — rate on your phone!
@@ -440,14 +449,7 @@ export class TvLobbyComponent implements OnInit, OnDestroy {
   judgingSecondsLeft = signal(0);
   judgingPct = signal(100);
   judgingGraceSecondsLeft = signal(0);
-
-  readonly youtubeEmbedUrl = computed((): SafeResourceUrl | null => {
-    const url = this.rt.currentPerformance$()?.youtubeUrl;
-    if (!url) return null;
-    const id = this._extractYoutubeId(url);
-    if (!id) return null;
-    return this.sanitizer.bypassSecurityTrustResourceUrl(`https://www.youtube.com/embed/${id}?autoplay=1`);
-  });
+  localVideoFailedForPerfId = signal<number | null>(null);
 
   private _resultPageIndex = signal(0);
   readonly resultPageIndex = this._resultPageIndex.asReadonly();
@@ -471,7 +473,6 @@ export class TvLobbyComponent implements OnInit, OnDestroy {
     public rt: RealtimeService,
     private route: ActivatedRoute,
     private api: GameApiService,
-    private sanitizer: DomSanitizer,
   ) {
     effect(() => {
       if (this.rt.gameEnded$()) {
@@ -613,19 +614,6 @@ export class TvLobbyComponent implements OnInit, OnDestroy {
         next: (snap) => this.rt.applySnapshot(snap),
       });
     });
-  }
-
-  private _extractYoutubeId(url: string): string | null {
-    const patterns = [
-      /youtu\.be\/([^?&]+)/,
-      /youtube\.com\/watch\?v=([^&]+)/,
-      /youtube\.com\/embed\/([^?&]+)/,
-    ];
-    for (const p of patterns) {
-      const m = url.match(p);
-      if (m) return m[1];
-    }
-    return null;
   }
 
   tvMedal(rank: number): string {

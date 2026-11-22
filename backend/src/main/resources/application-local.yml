@@ -6,3 +6,7 @@ spring:
     url: jdbc:postgresql://localhost:5432/karaogui
     username: karaogui
     password: karaogui
+
+karaogui:
+  videos:
+    root-dir: ./videos

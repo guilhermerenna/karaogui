@@ -43,6 +43,7 @@ export interface CurrentPerformanceDto {
   performanceId: number;
   type: string;
   state: 'QUEUED' | 'ANNOUNCED' | 'CONFIRMING' | 'RUNNING' | 'LOCKED' | 'SKIPPED';
+  videoId: string | null;
   youtubeUrl: string | null;
   confirmDeadlineAt: string | null;
   replacementOpensAt: string | null;
@@ -59,6 +60,7 @@ export interface PerformanceAnnouncedData {
   slots: PerformanceSlotDto[];
   judgeNames: string[];
   judgePlayerIds: string[];
+  videoId: string | null;
   youtubeUrl: string | null;
   confirmDeadlineAt: string;
 }
@@ -99,7 +101,8 @@ export interface QueuePerformanceRequest {
 
 export interface VideoDto {
   videoId: string;
-  youtubeUrl: string;
+  youtubeUrl: string | null;
+  hasLocalFile?: boolean;
   videoName?: string | null;
   thumbnailUrl?: string | null;
   songTitle?: string | null;

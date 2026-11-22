@@ -8,6 +8,7 @@ public record CurrentPerformanceDto(
         Long performanceId,
         String type,
         String state,
+        UUID videoId,
         String youtubeUrl,
         Instant confirmDeadlineAt,
         Instant replacementOpensAt,
