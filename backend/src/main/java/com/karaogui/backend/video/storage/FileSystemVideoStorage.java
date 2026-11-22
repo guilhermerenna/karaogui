@@ -48,9 +48,23 @@ public class FileSystemVideoStorage implements VideoStorage {
     private Path resolveUnderRoot(String rawPath) {
         try {
             Path candidate = Path.of(rawPath);
-            Path resolved = candidate.isAbsolute()
-                    ? candidate.normalize()
-                    : rootDir.resolve(candidate).normalize();
+            Path resolved;
+            if (candidate.isAbsolute()) {
+                Path normalized = candidate.normalize();
+                if (normalized.startsWith(rootDir)) {
+                    resolved = normalized;
+                } else {
+                    // Treat leading "/" as relative to the configured video root
+                    // (e.g. "/Radiohead-Creep.mp4" -> "<rootDir>/Radiohead-Creep.mp4").
+                    String stripped = rawPath.replaceFirst("^/+", "");
+                    if (stripped.isEmpty()) {
+                        return null;
+                    }
+                    resolved = rootDir.resolve(stripped).normalize();
+                }
+            } else {
+                resolved = rootDir.resolve(candidate).normalize();
+            }
             if (!resolved.startsWith(rootDir) || resolved.equals(rootDir)) {
                 return null;
             }

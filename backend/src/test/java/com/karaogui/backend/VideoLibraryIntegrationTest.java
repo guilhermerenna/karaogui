@@ -207,11 +207,28 @@ class VideoLibraryIntegrationTest {
         assertThat(mapper.readTree(regAgain.getResponse().getContentAsString()).get("videoId").asText())
                 .isEqualTo(videoId);
 
-        // Path traversal outside /videos is rejected.
+        // Leading-slash path relative to video root also resolves to the same file.
+        MvcResult regLeadingSlash = mvc.perform(post("/api/videos/local")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                        {"videoUrl": "/queen/bohemian.mp4"}
+                        """))
+                .andExpect(status().isCreated())
+                .andReturn();
+        assertThat(mapper.readTree(regLeadingSlash.getResponse().getContentAsString()).get("videoId").asText())
+                .isEqualTo(videoId);
+
+        // Path traversal outside /videos is rejected (both relative and leading-slash).
         mvc.perform(post("/api/videos/local")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("""
                         {"videoUrl": "../../etc/passwd"}
+                        """))
+                .andExpect(status().isConflict());
+        mvc.perform(post("/api/videos/local")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                        {"videoUrl": "/../../etc/passwd"}
                         """))
                 .andExpect(status().isConflict());
 

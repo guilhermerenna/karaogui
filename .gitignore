@@ -25,3 +25,6 @@ replay_pid*
 
 # Local environment secrets (YouTube API key, etc.) — never commit
 .env
+
+# Local Docker Compose build override — keep NAS deploys using GHCR images
+docker-compose.override.yml
