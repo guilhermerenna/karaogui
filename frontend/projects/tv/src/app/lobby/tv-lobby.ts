@@ -4,7 +4,7 @@ import { HttpErrorResponse } from '@angular/common/http';
 import { Client, IMessage } from '@stomp/stompjs';
 import { GameApiService } from 'api';
 import { RealtimeService } from 'realtime';
-import { LocalVideoPlayerComponent, YoutubeVideoPlayerComponent } from 'ui';
+import { LocalVideoPlayerComponent, YoutubeVideoPlayerComponent, formatAppVersion } from 'ui';
 
 @Component({
   selector: 'app-tv-lobby',
@@ -14,6 +14,7 @@ import { LocalVideoPlayerComponent, YoutubeVideoPlayerComponent } from 'ui';
   styleUrl: './tv-lobby.scss',
 })
 export class TvLobbyComponent implements OnInit, OnDestroy {
+  readonly appVersion = formatAppVersion();
   gameId: string | null = null;
   joinCode: string | null = null;
   displayToken: string | null = null;

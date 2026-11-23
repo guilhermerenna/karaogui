@@ -17,6 +17,15 @@ management:
   endpoint:
     health:
       show-details: never
+  info:
+    env:
+      enabled: true
+
+info:
+  app:
+    version: ${APP_VERSION:dev}
+    commit: ${GIT_SHA:local}
+    builtAt: ${BUILD_TIME:unknown}
 
 # All game-balance / tunable values live under this namespace (see docs/Technical/T08).
 karaogui:
