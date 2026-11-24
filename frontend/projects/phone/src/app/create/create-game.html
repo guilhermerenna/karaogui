@@ -3,13 +3,13 @@
     <a routerLink="/" class="back-link">← Back</a>
     <h2>Create a game</h2>
     <div class="field">
-      <label for="tvcode">TV code <span style="color:#9ca3af;font-weight:400">(optional)</span></label>
+      <label for="tvcode">TV code <span class="label-optional">(optional)</span></label>
       <input id="tvcode" type="text" [(ngModel)]="tvCode"
         placeholder="Code shown on TV"
         maxlength="7"
-        style="letter-spacing:.15em;text-transform:uppercase"
-        (input)="tvCode = tvCode.toUpperCase()" />
-      <p style="font-size:.8rem;color:#9ca3af;margin:.25rem 0 0">If your TV is already showing a code, enter it here.</p>
+        class="code-input"
+        (input)="tvCode" />
+      <p class="help-text">If your TV is already showing a code, enter it here.</p>
     </div>
     <div class="field">
       <label for="name">Your display name</label>

@@ -13,6 +13,7 @@ import { RealtimeService } from 'realtime';
   selector: 'app-results',
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './results.html',
+  styleUrl: './results.scss',
 })
 export class ResultsComponent implements OnInit, OnDestroy {
   private _pageIndex = signal(0);

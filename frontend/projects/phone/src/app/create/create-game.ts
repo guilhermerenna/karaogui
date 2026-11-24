@@ -8,6 +8,7 @@ import type { SessionInfo } from 'contracts';
   selector: 'app-create-game',
   imports: [FormsModule, RouterLink],
   templateUrl: './create-game.html',
+  styleUrl: './create-game.scss',
 })
 export class CreateGameComponent {
   displayName = '';

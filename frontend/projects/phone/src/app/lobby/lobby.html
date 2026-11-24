@@ -1,40 +1,40 @@
 <div class="page">
-  <div class="card" style="max-width:480px">
+  <div class="card lobby-card">
     @if (!session) {
       <p class="error-msg">No session found. <a href="/">Go back</a></p>
     } @else {
-      <div style="margin-bottom:1.5rem">
-        <div style="font-size:.75rem;color:#888;margin-bottom:.25rem">Join code</div>
-        <div style="font-size:2.5rem;font-weight:800;letter-spacing:.3em;color:#6366f1">
+      <div class="join-code-block">
+        <div class="join-code-label">Join code</div>
+        <div class="join-code-value">
           {{ joinCodeDisplay }}
         </div>
       </div>
 
-      <div style="margin-bottom:1.5rem">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.75rem">
-          <h2 style="margin:0">Players ({{ rt.players$().length }})</h2>
+      <div class="players-block">
+        <div class="players-header">
+          <h2>Players ({{ rt.players$().length }})</h2>
         </div>
         @if (rt.players$().length) {
-          <ul style="list-style:none;margin:0;padding:0">
+          <ul class="players-list">
             @for (p of rt.players$(); track p.playerId) {
-              <li style="display:flex;align-items:center;padding:.5rem 0;border-bottom:1px solid #f0f0f0">
-                <span style="flex:1">{{ p.displayName }}</span>
-                @if (p.isHost) { <span style="font-size:.75rem;background:#6366f1;color:#fff;border-radius:4px;padding:.1rem .4rem">host</span> }
+              <li class="player-row">
+                <span class="player-name">{{ p.displayName }}</span>
+                @if (p.isHost) { <span class="host-badge">host</span> }
               </li>
             }
           </ul>
         } @else {
-          <p style="color:#888;font-size:.9rem">Waiting for players to join…</p>
+          <p class="players-waiting">Waiting for players to join…</p>
         }
       </div>
 
       @if (session.isHost && rt.gameState$() === 'CREATED') {
-        <button class="btn btn-primary" style="margin-bottom:1rem"
+        <button class="btn btn-primary btn-start"
           [disabled]="starting() || rt.players$().length < 3" (click)="startGame()">
           {{ starting() ? 'Starting…' : 'Start game' }}
         </button>
         @if (rt.players$().length < 3) {
-          <p style="color:#888;font-size:.85rem;margin:-.5rem 0 1rem">
+          <p class="min-players-warning">
             Need at least 3 players to start ({{ rt.players$().length }}/3).
           </p>
         }

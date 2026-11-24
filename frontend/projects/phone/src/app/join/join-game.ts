@@ -9,6 +9,7 @@ import type { SessionInfo } from 'contracts';
   selector: 'app-join-game',
   imports: [FormsModule, RouterLink],
   templateUrl: './join-game.html',
+  styleUrl: './join-game.scss',
 })
 export class JoinGameComponent {
   joinCode = '';

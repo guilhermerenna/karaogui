@@ -1,0 +1,75 @@
+.lobby-card {
+  max-width: 480px;
+}
+
+.join-code-block {
+  margin-bottom: 1.5rem;
+
+  .join-code-label {
+    font-size: .75rem;
+    color: #888;
+    margin-bottom: .25rem;
+  }
+
+  .join-code-value {
+    font-size: 2.5rem;
+    font-weight: 800;
+    letter-spacing: .3em;
+    color: #6366f1;
+  }
+}
+
+.players-block {
+  margin-bottom: 1.5rem;
+
+  .players-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: .75rem;
+
+    h2 {
+      margin: 0;
+    }
+  }
+
+  .players-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+
+    .player-row {
+      display: flex;
+      align-items: center;
+      padding: .5rem 0;
+      border-bottom: 1px solid #f0f0f0;
+
+      .player-name {
+        flex: 1;
+      }
+
+      .host-badge {
+        font-size: .75rem;
+        background: #6366f1;
+        color: #fff;
+        border-radius: 4px;
+        padding: .1rem .4rem;
+      }
+    }
+  }
+
+  .players-waiting {
+    color: #888;
+    font-size: .9rem;
+  }
+}
+
+.btn-start {
+  margin-bottom: 1rem;
+}
+
+.min-players-warning {
+  color: #888;
+  font-size: .85rem;
+  margin: -.5rem 0 1rem;
+}

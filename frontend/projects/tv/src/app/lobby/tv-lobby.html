@@ -3,11 +3,11 @@
     <!-- TV-first pairing: show the code, wait for host to create game -->
     <div class="tv-waiting">
       <div class="tv-title">KaraoGUI</div>
-      <div class="tv-subtitle" style="margin-bottom:2rem">Enter this code when creating the game</div>
-      <div class="tv-join-code" style="font-size:6rem;letter-spacing:.5em;color:#a5b4fc;font-weight:900">
+      <div class="tv-subtitle tv-waiting-subtitle">Enter this code when creating the game</div>
+      <div class="tv-join-code tv-waiting-code">
         {{ pairingCodeDisplay() }}
       </div>
-      <div style="margin-top:2rem;font-size:1rem;color:#6b7280">Waiting for host…</div>
+      <div class="tv-waiting-hint">Waiting for host…</div>
     </div>
   } @else if (!gameId && !joinCode) {
     <div class="tv-waiting">
@@ -17,7 +17,7 @@
   } @else if (error()) {
     <div class="tv-waiting">
       <div class="tv-title">KaraoGUI</div>
-      <div class="tv-subtitle" style="color:#f87171">{{ error() }}</div>
+      <div class="tv-subtitle tv-error-text">{{ error() }}</div>
     </div>
   } @else if (!loaded()) {
     <div class="tv-waiting">
@@ -29,25 +29,27 @@
 
       <!-- GAME OVER OVERLAY -->
       @if (rt.gameEnded$()) {
-        <div style="position:fixed;inset:0;background:#0f172a;display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:10">
-          <div style="font-size:5rem;font-weight:900;color:#a5b4fc;margin-bottom:.5rem">Game Over</div>
-          <div style="font-size:1.5rem;color:#6b7280;margin-bottom:3rem">Final Standings</div>
+        <div class="game-over-overlay">
+          <div class="game-over-title">Game Over</div>
+          <div class="game-over-subtitle">Final Standings</div>
 
-          <div style="width:100%;max-width:700px">
+          <div class="standings-container">
             @for (entry of resultPage(); track entry.rank) {
-              <div style="display:flex;align-items:center;gap:1.5rem;padding:1rem 1.5rem;border-radius:12px;margin-bottom:.75rem"
-                [style.background]="entry.rank === 1 ? '#713f12' : entry.rank === 2 ? '#1e293b' : entry.rank === 3 ? '#422006' : '#0f172a'">
-                <span style="font-size:2.5rem;min-width:3rem;text-align:center">{{ tvMedal(entry.rank) }}</span>
-                <span style="flex:1;font-size:2rem;font-weight:700;color:#e2e8f0">{{ entry.displayName }}</span>
-                <span style="font-size:2.5rem;font-weight:900;color:#a5b4fc">{{ entry.score }} pts</span>
+              <div class="standings-card"
+                [class.rank-1]="entry.rank === 1"
+                [class.rank-2]="entry.rank === 2"
+                [class.rank-3]="entry.rank === 3">
+                <span class="standings-medal">{{ tvMedal(entry.rank) }}</span>
+                <span class="standings-name">{{ entry.displayName }}</span>
+                <span class="standings-score">{{ entry.score }} pts</span>
               </div>
             }
           </div>
 
-          <div style="display:flex;gap:.75rem;margin-top:2rem">
+          <div class="game-over-dots">
             @for (p of resultPageIndicators(); track $index) {
-              <div style="width:10px;height:10px;border-radius:50%"
-                [style.background]="$index === resultPageIndex() ? '#a5b4fc' : '#334155'"></div>
+              <div class="game-over-dot"
+                [class.active]="$index === resultPageIndex()"></div>
             }
           </div>
         </div>
@@ -62,7 +64,7 @@
             <div class="tv-perf-banner confirming">
               <div class="tv-perf-title">Confirming performers…</div>
               <div class="tv-countdown">{{ secondsLeft() }}s</div>
-              <div style="font-size:1.25rem;color:#94a3b8;margin-top:.75rem">
+              <div class="tv-perf-hint">
                 Perform to confirm on your phone
               </div>
             </div>
@@ -73,19 +75,19 @@
               <div class="tv-perf-title">Performance in progress</div>
               @if (perf.videoId && localVideoFailedForPerfId() !== perf.performanceId) {
                 <ui-local-video-player
-                  style="display:block;width:100%;margin-top:1.25rem"
+                  class="tv-video-player"
                   [videoId]="perf.videoId"
                   (playbackError)="localVideoFailedForPerfId.set(perf.performanceId)" />
               } @else if (perf.youtubeUrl) {
                 <ui-youtube-video-player
-                  style="display:block;width:100%;margin-top:1.25rem"
+                  class="tv-video-player"
                   [youtubeUrl]="perf.youtubeUrl" />
               } @else {
-                <div style="margin-top:1.25rem;color:#94a3b8;font-size:1.1rem">
+                <div class="tv-video-unavailable">
                   Video unavailable
                 </div>
               }
-              <div style="font-size:1.1rem;color:#86efac;margin-top:1rem">
+              <div class="tv-judges-prompt">
                 Judges — rate on your phone!
               </div>
               @if (perf.durationSeconds) {
@@ -99,7 +101,7 @@
                 <div class="tv-judge-overlay">
                   <div class="tv-perf-title">Waiting for judges</div>
                   <div class="tv-countdown">{{ judgingGraceSecondsLeft() }}s</div>
-                  <div style="font-size:1.25rem;color:#94a3b8;margin-top:.75rem">
+                  <div class="tv-perf-hint">
                     Evaluate using your phone
                   </div>
                 </div>
@@ -109,8 +111,8 @@
 
           @if (perf.state === 'LOCKED') {
             <div class="tv-perf-banner locked">
-              <div class="tv-perf-title" style="margin-bottom:1.5rem">Results</div>
-              <div style="display:flex;flex-direction:column;gap:1rem;width:100%;max-width:500px">
+              <div class="tv-perf-title results-title">Results</div>
+              <div class="tv-scores-container">
                 @for (s of rt.lockedScores$(); track s.playerId) {
                   <div class="tv-score-row">
                     <span class="tv-score-name">{{ s.displayName }}</span>
@@ -122,8 +124,8 @@
           }
 
           @if (perf.state === 'SKIPPED') {
-            <div class="tv-perf-banner" style="background:#1e293b">
-              <div class="tv-perf-title" style="color:#94a3b8">Performance skipped</div>
+            <div class="tv-perf-banner skipped">
+              <div class="tv-perf-title skipped-title">Performance skipped</div>
             </div>
           }
         } @else if (rt.gameState$() === 'ACTIVE') {
@@ -157,14 +159,13 @@
             }
           </div>
         } @else {
-          <div class="tv-state-badge" [class.active]="rt.gameState$() === 'ACTIVE'" style="margin-bottom:1rem">
+          <div class="tv-state-badge" [class.active]="rt.gameState$() === 'ACTIVE'">
             {{ rt.gameState$() === 'ACTIVE' ? 'Game in progress' : 'Waiting for host to start' }}
           </div>
           <div class="tv-label">Players</div>
           <ul class="tv-player-list"
             [class.two-col]="twoColPlayers()"
-            [style.--col-rows]="twoColPlayers() ? playerRows() : null"
-            style="margin-bottom:1rem">
+            [style.--col-rows]="twoColPlayers() ? playerRows() : null">
             @for (p of rt.players$(); track p.playerId) {
               <li class="tv-player">
                 <span class="tv-player-name">{{ p.displayName }}</span>
@@ -189,11 +190,11 @@
             }
           </ol>
         } @else {
-          <div style="color:#4b5563;font-size:1rem;margin-bottom:1rem">No scores yet</div>
+          <div class="tv-no-scores">No scores yet</div>
         }
 
         @if (rt.comments$().length) {
-          <div class="tv-label" style="margin-top:1rem">Chat</div>
+          <div class="tv-label chat-label">Chat</div>
           <div class="tv-comments">
             @for (c of rt.comments$().slice(0, 8); track c.commentId) {
               <div class="tv-comment">
@@ -208,12 +209,12 @@
         }
 
         <!-- BOTTOM: join code -->
-        <div style="margin-top:auto;padding-top:1rem;flex-shrink:0">
+        <div class="tv-join-code-container">
           <div class="tv-label">Join code</div>
           <div class="tv-join-code">{{ joinCodeDisplay }}</div>
         </div>
       </div>
     </div>
   }
-  <div style="position:fixed;bottom:.75rem;right:1rem;font-size:.75rem;color:#475569;pointer-events:none">{{ appVersion }}</div>
+  <div class="tv-app-version">{{ appVersion }}</div>
 </div>

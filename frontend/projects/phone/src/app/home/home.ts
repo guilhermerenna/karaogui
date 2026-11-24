@@ -6,6 +6,7 @@ import { formatAppVersion } from 'ui';
   selector: 'app-home',
   imports: [RouterLink],
   templateUrl: './home.html',
+  styleUrl: './home.scss',
 })
 export class HomeComponent {
   readonly appVersion = formatAppVersion();

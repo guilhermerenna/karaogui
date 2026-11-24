@@ -1,0 +1,118 @@
+.results-card {
+  max-width: 520px;
+}
+
+.results-title {
+  text-align: center;
+  margin-bottom: .25rem;
+}
+
+.results-subtitle {
+  text-align: center;
+  color: #888;
+  margin-bottom: 2rem;
+}
+
+.podium-list {
+  margin-bottom: 2rem;
+}
+
+.podium-card {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: .75rem;
+  border-radius: 8px;
+  margin-bottom: .5rem;
+  background: #f9fafb;
+
+  &.rank-1 {
+    background: #fef9c3;
+  }
+
+  &.rank-2 {
+    background: #f1f5f9;
+  }
+
+  &.rank-3 {
+    background: #fef3c7;
+  }
+
+  .podium-medal {
+    font-size: 1.5rem;
+    min-width: 2rem;
+    text-align: center;
+  }
+
+  .podium-name {
+    flex: 1;
+    font-weight: 600;
+  }
+
+  .podium-score {
+    font-weight: 700;
+    color: #6366f1;
+  }
+}
+
+.page-indicator-dots {
+  display: flex;
+  justify-content: center;
+  gap: .5rem;
+  margin-bottom: 2rem;
+
+  .indicator-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #d1d5db;
+
+    &.active {
+      background: #6366f1;
+    }
+  }
+}
+
+.full-ranking-title {
+  margin: 0 0 1rem;
+}
+
+.full-ranking-list {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 2rem;
+
+  .ranking-row {
+    display: flex;
+    align-items: center;
+    gap: .75rem;
+    padding: .5rem 0;
+    border-bottom: 1px solid #f0f0f0;
+
+    .ranking-rank {
+      min-width: 1.5rem;
+      text-align: center;
+      font-weight: 600;
+      color: #888;
+    }
+
+    .ranking-name {
+      flex: 1;
+    }
+
+    .ranking-score {
+      font-weight: 600;
+      color: #6366f1;
+    }
+  }
+}
+
+.actions-center {
+  text-align: center;
+
+  .btn-play-again {
+    display: inline-block;
+    width: auto;
+    text-decoration: none;
+  }
+}

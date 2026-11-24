@@ -10,6 +10,7 @@ import type { SessionInfo } from 'contracts';
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [],
   templateUrl: './lobby.html',
+  styleUrl: './lobby.scss',
 })
 export class LobbyComponent implements OnInit, OnDestroy {
   session: SessionInfo | null = null;
