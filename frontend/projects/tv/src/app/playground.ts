@@ -1,5 +1,5 @@
 import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
-import { ActivatedRoute } from '@angular/router';
+import { ActivatedRoute, Router } from '@angular/router';
 import { of } from 'rxjs';
 import { GameApiService } from 'api';
 import type { CommentDto, GameSnapshotDto, ScoreResultDto } from 'contracts';
@@ -61,6 +61,7 @@ class MockRealtimeService extends RealtimeService {
 })
 export class Playground {
   private readonly mockRt = inject(MockRealtimeService);
+  private readonly router = inject(Router);
 
   readonly scenarios: { id: PlaygroundScenario; label: string }[] = [
     { id: 'running', label: 'Running' },
@@ -75,5 +76,12 @@ export class Playground {
   selectScenario(scenario: PlaygroundScenario): void {
     this.activeScenario.set(scenario);
     this.mockRt.loadScenario(scenario);
+  }
+
+  exitPlayground(): void {
+    if (typeof window !== 'undefined') {
+      window.playground = false;
+    }
+    void this.router.navigateByUrl('/');
   }
 }

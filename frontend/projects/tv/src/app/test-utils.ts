@@ -54,7 +54,7 @@ export const generateMockPerformance = (
     type: 'KARAOKE',
     state,
     // Set a local videoId or youtubeUrl here if you want to test playback in the playground.
-    videoId: null,
+    videoId: '05be8810-1be4-4155-9818-39114044e85b',
     youtubeUrl: null,
     confirmDeadlineAt: state === 'CONFIRMING' ? new Date(now + 30_000).toISOString() : null,
     replacementOpensAt: state === 'CONFIRMING' ? new Date(now + 20_000).toISOString() : null,

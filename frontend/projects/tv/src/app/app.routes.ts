@@ -5,4 +5,8 @@ export const routes: Routes = [
     path: '',
     loadComponent: () => import('./lobby/tv-lobby').then(m => m.TvLobbyComponent),
   },
+  {
+    path: 'playground',
+    loadComponent: () => import('./playground').then(m => m.Playground),
+  },
 ];
