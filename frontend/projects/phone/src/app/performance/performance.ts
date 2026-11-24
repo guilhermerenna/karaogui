@@ -267,6 +267,9 @@ export class PerformanceComponent implements OnInit, OnDestroy {
     });
   }
 
+  /**
+   * hidden for now, only local videos are supported at the moment
+   */
   openImport() {
     this.importOpen.set(true);
     this.importError.set('');

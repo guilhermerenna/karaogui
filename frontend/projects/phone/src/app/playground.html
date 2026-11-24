@@ -1,13 +1,44 @@
 <div class="playground-shell">
   <header class="playground-header">
     <span class="playground-badge">Phone Playground</span>
-    <span class="playground-hint">
-      Edit <code>projects/phone/src/app/playground.ts</code> — set
-      <code>window.playground = false</code> to exit
-    </span>
+    <div class="playground-scenarios">
+      @for (s of scenarios; track s.id) {
+        <button
+          type="button"
+          class="scenario-btn"
+          [class.active]="activeScenario() === s.id"
+          (click)="selectScenario(s.id)">
+          {{ s.label }}
+        </button>
+      }
+    </div>
+    <button type="button" class="exit-btn" (click)="exitPlayground()">
+      Exit Playground
+    </button>
   </header>
 
   <main class="playground-stage">
-    <!-- Render the component under development here -->
+    @for (scenario of [activeScenario()]; track scenario) {
+      @switch (activeView()) {
+        @case ('home') {
+          <app-home />
+        }
+        @case ('create') {
+          <app-create-game />
+        }
+        @case ('join') {
+          <app-join-game />
+        }
+        @case ('lobby') {
+          <app-lobby />
+        }
+        @case ('performance') {
+          <app-performance />
+        }
+        @case ('results') {
+          <app-results />
+        }
+      }
+    }
   </main>
 </div>

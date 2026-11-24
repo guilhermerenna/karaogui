@@ -25,4 +25,8 @@ export const routes: Routes = [
     path: 'results',
     loadComponent: () => import('./results/results').then(m => m.ResultsComponent),
   },
+  {
+    path: 'playground',
+    loadComponent: () => import('./playground').then(m => m.Playground),
+  },
 ];
