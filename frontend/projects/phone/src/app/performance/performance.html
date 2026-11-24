@@ -210,7 +210,9 @@
                   @if (v.thumbnailUrl) {
                     <img [src]="v.thumbnailUrl" alt="" class="video-thumb" />
                   } @else {
-                    <div class="video-thumb-placeholder">🎵</div>
+                    <div class="video-thumb-placeholder">
+                      <svg lucideMusic class="music-icon"></svg>
+                    </div>
                   }
                   <div class="video-info">
                     <div class="video-title-row">
@@ -230,9 +232,13 @@
             <!-- PAGER -->
             @if (videoPage() > 0 || videoHasMore()) {
               <div class="pager-row">
-                <button class="btn pager-btn" [disabled]="videoPage() === 0 || searching()" (click)="prevVideoPage()">‹ Prev</button>
+                <button class="btn pager-btn" [disabled]="videoPage() === 0 || searching()" (click)="prevVideoPage()" aria-label="Previous page">
+                  <svg lucideChevronLeft class="pager-icon" [size]="18"></svg>
+                </button>
                 <span class="pager-info">Page {{ videoPage() + 1 }}</span>
-                <button class="btn pager-btn" [disabled]="!videoHasMore() || searching()" (click)="nextVideoPage()">Next ›</button>
+                <button class="btn pager-btn" [disabled]="!videoHasMore() || searching()" (click)="nextVideoPage()" aria-label="Next page">
+                  <svg lucideChevronRight class="pager-icon" [size]="18"></svg>
+                </button>
               </div>
             }
           }

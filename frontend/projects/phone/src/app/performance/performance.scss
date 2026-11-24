@@ -408,22 +408,29 @@
   }
 
   .video-thumb {
-    width: 32px;
-    height: 24px;
+    width: clamp(32px, 8vw, 64px);
+    height: clamp(24px, 6vw, 48px);
     object-fit: cover;
-    border-radius: 2px;
+    border-radius: 4px;
     flex-shrink: 0;
   }
 
   .video-thumb-placeholder {
-    width: 32px;
-    height: 24px;
-    border-radius: 2px;
+    width: clamp(32px, 8vw, 64px);
+    height: clamp(24px, 6vw, 48px);
+    border-radius: 4px;
     background: #e5e7eb;
     display: flex;
     align-items: center;
     justify-content: center;
     flex-shrink: 0;
+    color: #6b7280;
+
+    .music-icon {
+      display: block;
+      width: clamp(16px, 4vw, 32px);
+      height: clamp(16px, 4vw, 32px);
+    }
   }
 
   .video-info {
@@ -490,8 +497,15 @@
 
   .pager-btn {
     width: auto;
-    font-size: .8rem;
-    padding: .4rem .8rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: .4rem .6rem;
+    line-height: 1;
+
+    .pager-icon {
+      display: block;
+    }
   }
 
   .pager-info {

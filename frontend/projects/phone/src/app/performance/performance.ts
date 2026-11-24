@@ -11,6 +11,7 @@ import { FormsModule } from '@angular/forms';
 import { HttpErrorResponse } from '@angular/common/http';
 import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
 import { Router } from '@angular/router';
+import { LucideChevronLeft, LucideChevronRight, LucideMusic } from '@lucide/angular';
 import { GameApiService } from 'api';
 import { RealtimeService } from 'realtime';
 import type { CommentDto, CriterionScore, SessionInfo, VideoDto } from 'contracts';
@@ -20,7 +21,7 @@ const CRITERIA = ['PITCH', 'ENERGY', 'STAGE_PRESENCE'] as const;
 @Component({
   selector: 'app-performance',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [FormsModule],
+  imports: [FormsModule, LucideChevronLeft, LucideChevronRight, LucideMusic],
   templateUrl: './performance.html',
   styleUrl: './performance.scss',
 })
