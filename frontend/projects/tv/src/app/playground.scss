@@ -7,12 +7,15 @@
 .playground-header {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 0.75rem;
   padding: 0.5rem 1rem;
   background: #16162a;
   border-bottom: 1px solid #262645;
   font-size: 0.8rem;
   color: #94a3b8;
+  position: relative;
+  z-index: 20;
 }
 
 .playground-badge {
@@ -26,6 +29,32 @@
   font-size: 0.7rem;
 }
 
+.playground-scenarios {
+  display: flex;
+  gap: 0.35rem;
+}
+
+.scenario-btn {
+  background: #1e293b;
+  color: #cbd5e1;
+  border: 1px solid #334155;
+  border-radius: 6px;
+  padding: 0.2rem 0.6rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.scenario-btn.active {
+  background: #4f46e5;
+  border-color: #6366f1;
+  color: #fff;
+}
+
+.playground-hint {
+  margin-left: auto;
+}
+
 .playground-header code {
   color: #c7d2fe;
   background: rgba(99, 102, 241, 0.15);
@@ -35,5 +64,4 @@
 
 .playground-stage {
   flex: 1;
-  padding: 1.5rem;
 }

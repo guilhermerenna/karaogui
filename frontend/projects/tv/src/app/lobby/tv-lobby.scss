@@ -3,10 +3,16 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 2rem;
+  padding: 0.5rem;
 }
 .tv-waiting {
   text-align: center;
+}
+.performers-list {
+  display:flex;
+  flex-direction:column;
+  gap:.5rem;
+  margin-bottom:1rem
 }
 .tv-title {
   font-size: 4rem;
@@ -52,7 +58,7 @@
   letter-spacing: .2em;
   color: #a5b4fc;
   line-height: 1;
-  margin-bottom: 1.5rem;
+  margin-bottom: .5rem;
   white-space: nowrap;
 }
 .tv-state-badge {
@@ -62,7 +68,7 @@
   background: #1e293b;
   color: #94a3b8;
   font-size: .9rem;
-  margin-bottom: 1.5rem;
+  margin-bottom: .5rem;
 }
 .tv-state-badge.active { background: #14532d; color: #86efac; }
 
@@ -131,8 +137,8 @@
 .tv-rank-entry {
   display: flex;
   align-items: center;
-  gap: .75rem;
-  padding: .75rem 0;
+  gap: .25rem;
+  padding: .05rem 0;
   border-bottom: 1px solid #1e293b;
   font-size: 1.1rem;
 }
@@ -141,13 +147,20 @@
   text-align: center;
   font-weight: 700;
   color: #6366f1;
-  font-size: 1.25rem;
+  font-size: 1rem;
 }
-.tv-rank-name { flex: 1; font-weight: 500; }
+.tv-rank-name { flex: 1; font-weight: 500; font-size: 0.9rem; }
 .tv-rank-score { color: #6b7280; font-size: .9rem; }
 
-.tv-comments { display: flex; flex-direction: column; gap: .5rem; }
+.tv-comments {
+  display: flex;
+  flex-direction: column;
+  gap: .5rem;
+  max-height: 200px;
+  overflow: hidden;
+}
 .tv-comment {
+  flex-shrink: 0;
   background: #1e293b;
   border-radius: 8px;
   padding: .5rem .75rem;
@@ -194,7 +207,7 @@
   z-index: 50;
   background: #1e1b4b;
   border-radius: 16px;
-  padding: 2rem 3rem;
+  padding: 0.5rem 0.5rem;
   text-align: center;
   display: flex;
   flex-direction: column;

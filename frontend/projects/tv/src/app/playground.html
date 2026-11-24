@@ -1,13 +1,23 @@
 <div class="playground-shell">
   <header class="playground-header">
     <span class="playground-badge">TV Playground</span>
+    <div class="playground-scenarios">
+      @for (s of scenarios; track s.id) {
+        <button
+          type="button"
+          class="scenario-btn"
+          [class.active]="activeScenario() === s.id"
+          (click)="selectScenario(s.id)">
+          {{ s.label }}
+        </button>
+      }
+    </div>
     <span class="playground-hint">
-      Edit <code>projects/tv/src/app/playground.ts</code> — set
       <code>window.playground = false</code> to exit
     </span>
   </header>
 
   <main class="playground-stage">
-    <!-- Render the component under development here -->
+    <app-tv-lobby />
   </main>
 </div>

@@ -4,6 +4,9 @@
   "scripts": {
     "ng": "ng",
     "start": "ng serve",
+    "dev": "node scripts/dev.mjs",
+    "dev:tv": "ng serve --project tv --port 4200 --host 0.0.0.0 --no-open",
+    "dev:phone": "ng serve --project phone --port 4201 --host 0.0.0.0 --no-open",
     "build": "ng build",
     "watch": "ng build --watch --configuration development",
     "test": "ng test"

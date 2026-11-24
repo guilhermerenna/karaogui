@@ -145,8 +145,8 @@
         <!-- TOP: performers during a performance, otherwise players list -->
         @if (rt.currentPerformance$()) {
           @let perf = rt.currentPerformance$()!;
-          <div class="tv-label" style="margin-bottom:.75rem">Performers</div>
-          <div style="display:flex;flex-direction:column;gap:.5rem;margin-bottom:1.5rem">
+          <div class="tv-label">Performers</div>
+          <div class="performers-list">
             @for (slot of perf.slots; track slot.slotId) {
               <div class="tv-slot-card"
                 [class.confirmed]="slot.state === 'CONFIRMED' || slot.state === 'REPLACED'"
