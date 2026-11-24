@@ -1,7 +1,8 @@
 .playground-shell {
-  min-height: 100dvh;
+  height: 100dvh;
   display: flex;
   flex-direction: column;
+  overflow: hidden;
 }
 
 .playground-header {
@@ -70,4 +71,6 @@
 
 .playground-stage {
   flex: 1;
+  min-height: 0;
+  overflow: hidden;
 }

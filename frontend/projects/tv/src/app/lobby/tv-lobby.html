@@ -25,7 +25,7 @@
       <div class="tv-subtitle">Loading…</div>
     </div>
   } @else {
-    <div class="tv-content">
+    <div class="tv-content" [class.wide-sidebar]="wideSidebar()">
 
       <!-- GAME OVER OVERLAY -->
       @if (rt.gameEnded$()) {
@@ -161,7 +161,10 @@
             {{ rt.gameState$() === 'ACTIVE' ? 'Game in progress' : 'Waiting for host to start' }}
           </div>
           <div class="tv-label">Players</div>
-          <ul class="tv-player-list" style="margin-bottom:1.5rem">
+          <ul class="tv-player-list"
+            [class.two-col]="twoColPlayers()"
+            [style.--col-rows]="twoColPlayers() ? playerRows() : null"
+            style="margin-bottom:1rem">
             @for (p of rt.players$(); track p.playerId) {
               <li class="tv-player">
                 <span class="tv-player-name">{{ p.displayName }}</span>
@@ -174,7 +177,9 @@
         <!-- MIDDLE: ranking + comments -->
         <div class="tv-label">Ranking</div>
         @if (rt.ranking$().length) {
-          <ol class="tv-rank-list">
+          <ol class="tv-rank-list"
+            [class.two-col]="twoColRanking()"
+            [style.--col-rows]="twoColRanking() ? rankRows() : null">
             @for (entry of rt.ranking$(); track entry.playerId) {
               <li class="tv-rank-entry">
                 <span class="tv-rank-pos">{{ entry.rank }}</span>
@@ -188,7 +193,7 @@
         }
 
         @if (rt.comments$().length) {
-          <div class="tv-label" style="margin-top:1.5rem">Chat</div>
+          <div class="tv-label" style="margin-top:1rem">Chat</div>
           <div class="tv-comments">
             @for (c of rt.comments$().slice(0, 8); track c.commentId) {
               <div class="tv-comment">
@@ -203,7 +208,7 @@
         }
 
         <!-- BOTTOM: join code -->
-        <div style="margin-top:auto;padding-top:1.5rem">
+        <div style="margin-top:auto;padding-top:1rem;flex-shrink:0">
           <div class="tv-label">Join code</div>
           <div class="tv-join-code">{{ joinCodeDisplay }}</div>
         </div>

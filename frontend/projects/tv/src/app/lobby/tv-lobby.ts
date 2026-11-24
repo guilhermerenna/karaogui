@@ -47,6 +47,14 @@ export class TvLobbyComponent implements OnInit, OnDestroy {
     return all.slice(start, start + 5);
   });
 
+  readonly twoColRanking = computed(() => this.rt.ranking$().length > 6);
+  readonly rankRows = computed(() => Math.ceil(this.rt.ranking$().length / 2));
+  readonly twoColPlayers = computed(() => this.rt.players$().length > 6);
+  readonly playerRows = computed(() => Math.ceil(this.rt.players$().length / 2));
+  readonly wideSidebar = computed(() =>
+    this.twoColRanking() || (!this.rt.currentPerformance$() && this.twoColPlayers()),
+  );
+
   private resnapSub: any = null;
   private timerHandle: ReturnType<typeof setInterval> | null = null;
   private resultPageHandle: ReturnType<typeof setInterval> | null = null;
