@@ -9,4 +9,4 @@ spring:
 
 karaogui:
   videos:
-    root-dir: ./videos
+    root-dir: ${VIDEOS_ROOT_DIR:./videos}
