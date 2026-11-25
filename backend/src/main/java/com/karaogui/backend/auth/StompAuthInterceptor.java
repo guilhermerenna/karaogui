@@ -3,7 +3,9 @@ package com.karaogui.backend.auth;
 import com.karaogui.backend.player.GameDisplayTokenRepository;
 import com.karaogui.backend.player.PlayerSessionRepository;
 import com.karaogui.backend.tv.PendingTvSessionRepository;
+import com.karaogui.backend.tv.TvService;
 import java.security.Principal;
+import java.time.Instant;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
@@ -140,7 +142,8 @@ public class StompAuthInterceptor implements ChannelInterceptor {
         }
         // Pending TV session — no game yet; use hash as principal name for user-destination routing
         var pending = pendingTvRepo.findByDisplayTokenHash(hash);
-        if (pending.isPresent()) {
+        if (pending.isPresent()
+                && !pending.get().getCreatedAt().isBefore(Instant.now().minus(TvService.PENDING_TTL))) {
             return new StompPrincipal(null, null, "TV", true, hash);
         }
         return null;

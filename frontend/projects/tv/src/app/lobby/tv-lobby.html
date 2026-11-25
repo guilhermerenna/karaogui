@@ -72,7 +72,6 @@
 
           @if (perf.state === 'RUNNING') {
             <div class="tv-perf-banner running">
-              <div class="tv-perf-title">Performance in progress</div>
               @if (perf.videoId && localVideoFailedForPerfId() !== perf.performanceId) {
                 <ui-local-video-player
                   class="tv-video-player"

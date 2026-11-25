@@ -1,5 +1,6 @@
 package com.karaogui.backend.game;
 
+import com.karaogui.backend.auth.GameScopeException;
 import com.karaogui.backend.auth.PlayerIdentity;
 import com.karaogui.backend.auth.ScopeGuard;
 import com.karaogui.backend.auth.TokenAuthFilter;
@@ -19,6 +20,7 @@ import com.karaogui.backend.player.PlayerSession;
 import com.karaogui.backend.player.PlayerSessionRepository;
 import jakarta.persistence.EntityNotFoundException;
 import com.karaogui.backend.tv.PendingTvSessionRepository;
+import com.karaogui.backend.tv.TvService;
 import com.karaogui.backend.performance.PerformanceService;
 import com.karaogui.backend.performance.PerformanceRepository;
 import com.karaogui.backend.performance.PerformanceState;
@@ -77,6 +79,10 @@ public class GameService {
         String joinCode = JoinCodeGenerator.normalize(req.tvCode());
         var pending = pendingTvRepo.findById(joinCode)
                 .orElseThrow(() -> new EntityNotFoundException("TV_SESSION_NOT_FOUND"));
+        if (pending.getCreatedAt().isBefore(now.minus(TvService.PENDING_TTL))) {
+            pendingTvRepo.delete(pending);
+            throw new EntityNotFoundException("TV_SESSION_NOT_FOUND");
+        }
         String displayTokenHash = pending.getDisplayTokenHash();
         // Reconstruct the raw token is not possible — we store the hash only.
         // Return null so the host knows the TV already holds its token.
@@ -207,9 +213,11 @@ public class GameService {
     @Transactional(readOnly = true)
     public GameSnapshotDto getSnapshotByCode(String joinCode, PlayerIdentity identity) {
         String normalized = JoinCodeGenerator.normalize(joinCode);
-        Game game = gameRepo.findByJoinCode(normalized)
-                .orElseThrow(() -> new EntityNotFoundException("Game not found for code: " + joinCode));
-        ScopeGuard.requireScope(identity, game.getId());
+        Game game = gameRepo.findById(identity.gameId())
+                .orElseThrow(() -> new EntityNotFoundException("Game not found: " + identity.gameId()));
+        if (!game.getJoinCode().equals(normalized)) {
+            throw new GameScopeException("FORBIDDEN", "Token is not valid for this game.");
+        }
         return buildSnapshot(game);
     }
 
