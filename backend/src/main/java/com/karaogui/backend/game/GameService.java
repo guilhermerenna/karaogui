@@ -36,7 +36,6 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 public class GameService {
 
-    private static final int MAX_JOIN_CODE_ATTEMPTS = 10;
     private static final int MIN_PLAYERS_TO_START = 3;
 
     private final GameRepository gameRepo;
@@ -44,7 +43,6 @@ public class GameService {
     private final PlayerSessionRepository sessionRepo;
     private final GameDisplayTokenRepository displayTokenRepo;
     private final PendingTvSessionRepository pendingTvRepo;
-    private final JoinCodeGenerator joinCodeGenerator;
     private final KaraoguiProperties props;
     private final ApplicationEventPublisher eventPublisher;
     private final PerformanceService performanceService;
@@ -53,7 +51,7 @@ public class GameService {
     public GameService(GameRepository gameRepo, PlayerRepository playerRepo,
             PlayerSessionRepository sessionRepo, GameDisplayTokenRepository displayTokenRepo,
             PendingTvSessionRepository pendingTvRepo,
-            JoinCodeGenerator joinCodeGenerator, KaraoguiProperties props,
+            KaraoguiProperties props,
             ApplicationEventPublisher eventPublisher, PerformanceService performanceService,
             PerformanceRepository performanceRepo) {
         this.gameRepo = gameRepo;
@@ -61,7 +59,6 @@ public class GameService {
         this.sessionRepo = sessionRepo;
         this.displayTokenRepo = displayTokenRepo;
         this.pendingTvRepo = pendingTvRepo;
-        this.joinCodeGenerator = joinCodeGenerator;
         this.props = props;
         this.eventPublisher = eventPublisher;
         this.performanceService = performanceService;
@@ -70,29 +67,21 @@ public class GameService {
 
     @Transactional
     public CreateGameResponse createGame(CreateGameRequest req) {
+        if (req.tvCode() == null || req.tvCode().isBlank()) {
+            throw new GameStateException("TV_CODE_REQUIRED", "A valid TV code is required to create a game.");
+        }
+
         Instant now = Instant.now();
         UUID gameId = UUID.randomUUID();
 
-        // Resolve join code and display token — either from a pending TV session or fresh
-        String joinCode;
-        String rawDisplayToken;
-        String displayTokenHash;
-
-        if (req.tvCode() != null && !req.tvCode().isBlank()) {
-            String normalized = JoinCodeGenerator.normalize(req.tvCode());
-            var pending = pendingTvRepo.findById(normalized)
-                    .orElseThrow(() -> new jakarta.persistence.EntityNotFoundException("TV_SESSION_NOT_FOUND"));
-            joinCode = normalized;
-            displayTokenHash = pending.getDisplayTokenHash();
-            // Reconstruct the raw token is not possible — we store the hash only.
-            // Return a sentinel so the host knows the TV already has its token.
-            rawDisplayToken = null;
-            pendingTvRepo.delete(pending);
-        } else {
-            joinCode = generateUniqueJoinCode();
-            rawDisplayToken = UUID.randomUUID().toString();
-            displayTokenHash = TokenAuthFilter.sha256Hex(rawDisplayToken);
-        }
+        String joinCode = JoinCodeGenerator.normalize(req.tvCode());
+        var pending = pendingTvRepo.findById(joinCode)
+                .orElseThrow(() -> new EntityNotFoundException("TV_SESSION_NOT_FOUND"));
+        String displayTokenHash = pending.getDisplayTokenHash();
+        // Reconstruct the raw token is not possible — we store the hash only.
+        // Return null so the host knows the TV already holds its token.
+        String rawDisplayToken = null;
+        pendingTvRepo.delete(pending);
 
         Game game = new Game(gameId, joinCode, GameState.CREATED, null, now);
         gameRepo.save(game);
@@ -110,9 +99,7 @@ public class GameService {
 
         displayTokenRepo.save(new GameDisplayToken(UUID.randomUUID(), gameId, displayTokenHash, now));
 
-        if (req.tvCode() != null && !req.tvCode().isBlank()) {
-            eventPublisher.publishEvent(new GameDomainEvent.TvReady(this, displayTokenHash, gameId, joinCode));
-        }
+        eventPublisher.publishEvent(new GameDomainEvent.TvReady(this, displayTokenHash, gameId, joinCode));
 
         return new CreateGameResponse(
                 gameId,
@@ -313,16 +300,5 @@ public class GameService {
         boolean onBreak = p.getOnBreakUntil() != null && p.getOnBreakUntil().isAfter(Instant.now());
         return new PlayerDto(p.getId(), p.getDisplayName(), p.getPictureUrl(),
                 p.getScore(), p.isHost(), onBreak);
-    }
-
-    private String generateUniqueJoinCode() {
-        for (int attempt = 0; attempt < MAX_JOIN_CODE_ATTEMPTS; attempt++) {
-            String code = joinCodeGenerator.generate();
-            if (gameRepo.findByJoinCode(code).isEmpty()) {
-                return code;
-            }
-        }
-        throw new IllegalStateException("Could not generate a unique join code after "
-                + MAX_JOIN_CODE_ATTEMPTS + " attempts.");
     }
 }

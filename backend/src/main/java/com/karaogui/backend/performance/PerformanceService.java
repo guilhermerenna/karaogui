@@ -112,10 +112,19 @@ public class PerformanceService {
             // Queue from a library video: reuse the stored URL, videoId, and duration, skip the YouTube round-trip.
             Video video = videoRepo.findById(req.videoId())
                     .orElseThrow(() -> new EntityNotFoundException("Video not found: " + req.videoId()));
+            boolean hasLocalFile = video.getLocalPath() != null && !video.getLocalPath().isBlank();
+            if (!hasLocalFile && !isYoutubeEnabled()) {
+                throw new GameStateException("YOUTUBE_DISABLED",
+                        "YouTube videos are currently disabled. Please select a local video from the library.");
+            }
             videoId = video.getId();
-            youtubeUrl = video.getYoutubeUrl();
+            youtubeUrl = isYoutubeEnabled() ? video.getYoutubeUrl() : null;
             durationSeconds = video.getDurationSeconds();
         } else if (req.youtubeUrl() != null && !req.youtubeUrl().isBlank()) {
+            if (!isYoutubeEnabled()) {
+                throw new GameStateException("YOUTUBE_DISABLED",
+                        "YouTube videos are currently disabled. Please select a local video from the library.");
+            }
             // Legacy path: fetch metadata directly from the raw URL.
             YoutubeMetadataClient.LookupResult metadata = youtubeClient.fetch(req.youtubeUrl());
             if (metadata.isRejected()) {
@@ -611,6 +620,10 @@ public class PerformanceService {
                 .filter(v -> v.getLocalPath() != null && !v.getLocalPath().isBlank())
                 .map(Video::getId)
                 .orElse(null);
+    }
+
+    private boolean isYoutubeEnabled() {
+        return props.features() != null && props.features().youtube();
     }
 
     private Map<UUID, String> buildPlayerNameMap(UUID gameId) {

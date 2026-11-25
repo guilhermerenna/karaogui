@@ -24,4 +24,21 @@ public interface VideoRepository extends JpaRepository<Video, UUID> {
     List<Video> search(@Param("q") String q, Pageable pageable);
 
     List<Video> findAllByOrderByCreatedAtDesc(Pageable pageable);
+
+    @Query("""
+            SELECT v FROM Video v
+            WHERE v.localPath IS NOT NULL AND v.localPath <> ''
+              AND (LOWER(COALESCE(v.videoName, '')) LIKE LOWER(CONCAT('%', :q, '%'))
+                OR LOWER(COALESCE(v.songTitle, '')) LIKE LOWER(CONCAT('%', :q, '%'))
+                OR LOWER(COALESCE(v.artist, '')) LIKE LOWER(CONCAT('%', :q, '%')))
+            ORDER BY v.createdAt DESC
+            """)
+    List<Video> searchLocal(@Param("q") String q, Pageable pageable);
+
+    @Query("""
+            SELECT v FROM Video v
+            WHERE v.localPath IS NOT NULL AND v.localPath <> ''
+            ORDER BY v.createdAt DESC
+            """)
+    List<Video> findAllLocalByOrderByCreatedAtDesc(Pageable pageable);
 }

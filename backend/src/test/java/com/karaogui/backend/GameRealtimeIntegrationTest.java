@@ -45,19 +45,25 @@ class GameRealtimeIntegrationTest {
 
     @Test
     void tvReceivesPlayerJoinedEvent() throws Exception {
-        // 1. Create game
+        // 1. Register TV and create game
+        MvcResult tvResult = mvc.perform(post("/api/tv/register"))
+                .andExpect(status().isOk())
+                .andReturn();
+        JsonNode tvBody = mapper.readTree(tvResult.getResponse().getContentAsString());
+        String tvCode = tvBody.get("joinCode").asText();
+        String displayToken = tvBody.get("displayToken").asText();
+
         MvcResult createResult = mvc.perform(post("/api/games")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("""
-                        {"host": {"displayName": "Host"}}
-                        """))
+                        {"host": {"displayName": "Host"}, "tvCode": "%s"}
+                        """.formatted(tvCode)))
                 .andExpect(status().isCreated())
                 .andReturn();
 
         JsonNode createBody = mapper.readTree(createResult.getResponse().getContentAsString());
         String gameId = createBody.get("gameId").asText();
         String joinCode = createBody.get("joinCode").asText();
-        String displayToken = createBody.get("displayToken").asText();
         String hostToken = createBody.get("sessionToken").asText();
 
         // 2. TV connects with display token

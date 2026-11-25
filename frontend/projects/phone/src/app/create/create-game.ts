@@ -18,12 +18,19 @@ export class CreateGameComponent {
 
   constructor(private api: GameApiService, private router: Router) {}
 
+  get normalizedTvCode(): string {
+    return this.tvCode.replace(/\s/g, '').trim();
+  }
+
+  get canCreate(): boolean {
+    return Boolean(this.displayName.trim() && this.normalizedTvCode && !this.loading());
+  }
+
   create() {
-    if (!this.displayName.trim()) return;
+    if (!this.displayName.trim() || !this.normalizedTvCode) return;
     this.loading.set(true);
     this.error.set('');
-    const code = this.tvCode.replace(/\s/g, '').trim() || undefined;
-    this.api.createGame(this.displayName.trim(), code).subscribe({
+    this.api.createGame(this.displayName.trim(), this.normalizedTvCode).subscribe({
       next: (res) => {
         const session: SessionInfo = {
           gameId: res.gameId,

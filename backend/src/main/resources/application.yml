@@ -65,3 +65,5 @@ karaogui:
     picture-upload: false
     challenge-job: false
     random-assignment: false
+    youtube: false
+    video-delete: false

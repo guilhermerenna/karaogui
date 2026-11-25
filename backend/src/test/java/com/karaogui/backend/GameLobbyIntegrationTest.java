@@ -22,19 +22,30 @@ class GameLobbyIntegrationTest {
     @Autowired MockMvc mvc;
     @Autowired ObjectMapper mapper;
 
+    private record TvReg(String joinCode, String displayToken) {}
+
+    private TvReg registerTv() throws Exception {
+        MvcResult tvRes = mvc.perform(post("/api/tv/register"))
+                .andExpect(status().isOk())
+                .andReturn();
+        JsonNode tvBody = mapper.readTree(tvRes.getResponse().getContentAsString());
+        return new TvReg(tvBody.get("joinCode").asText(), tvBody.get("displayToken").asText());
+    }
+
     @Test
     void createJoinStart_happyPath() throws Exception {
+        TvReg tv = registerTv();
+
         // 1. Create game (host)
         MvcResult createResult = mvc.perform(post("/api/games")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("""
-                        {"host": {"displayName": "Sam"}}
-                        """))
+                        {"host": {"displayName": "Sam"}, "tvCode": "%s"}
+                        """.formatted(tv.joinCode())))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.gameId").exists())
                 .andExpect(jsonPath("$.joinCode").exists())
                 .andExpect(jsonPath("$.sessionToken").exists())
-                .andExpect(jsonPath("$.displayToken").exists())
                 .andExpect(jsonPath("$.state").value("CREATED"))
                 .andReturn();
 
@@ -42,7 +53,7 @@ class GameLobbyIntegrationTest {
         String gameId = createBody.get("gameId").asText();
         String hostToken = createBody.get("sessionToken").asText();
         String joinCode = createBody.get("joinCode").asText();
-        String displayToken = createBody.get("displayToken").asText();
+        String displayToken = tv.displayToken();
 
         // 2. Join game (second player)
         MvcResult joinResult = mvc.perform(post("/api/games/join")
@@ -115,11 +126,12 @@ class GameLobbyIntegrationTest {
 
     @Test
     void rejoinByName_resumesExistingPlayer() throws Exception {
+        TvReg tv = registerTv();
         MvcResult createResult = mvc.perform(post("/api/games")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("""
-                        {"host": {"displayName": "Host"}}
-                        """))
+                        {"host": {"displayName": "Host"}, "tvCode": "%s"}
+                        """.formatted(tv.joinCode())))
                 .andExpect(status().isCreated()).andReturn();
         JsonNode createBody = mapper.readTree(createResult.getResponse().getContentAsString());
         String gameId = createBody.get("gameId").asText();
@@ -177,17 +189,19 @@ class GameLobbyIntegrationTest {
 
     @Test
     void tokenForWrongGame_returns403() throws Exception {
+        TvReg tv1 = registerTv();
+        TvReg tv2 = registerTv();
         MvcResult r1 = mvc.perform(post("/api/games")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("""
-                        {"host": {"displayName": "Alice"}}
-                        """))
+                        {"host": {"displayName": "Alice"}, "tvCode": "%s"}
+                        """.formatted(tv1.joinCode())))
                 .andExpect(status().isCreated()).andReturn();
         MvcResult r2 = mvc.perform(post("/api/games")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("""
-                        {"host": {"displayName": "Bob"}}
-                        """))
+                        {"host": {"displayName": "Bob"}, "tvCode": "%s"}
+                        """.formatted(tv2.joinCode())))
                 .andExpect(status().isCreated()).andReturn();
 
         String gameId2 = mapper.readTree(r2.getResponse().getContentAsString()).get("gameId").asText();
@@ -209,19 +223,42 @@ class GameLobbyIntegrationTest {
         mvc.perform(post("/api/games")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("""
-                        {"host": {"displayName": ""}}
+                        {"host": {"displayName": ""}, "tvCode": "ABC123"}
                         """))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.error.code").value("VALIDATION_ERROR"));
     }
 
     @Test
+    void createGame_withoutTvCode_returns400() throws Exception {
+        mvc.perform(post("/api/games")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                        {"host": {"displayName": "Sam"}}
+                        """))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error.code").value("VALIDATION_ERROR"));
+    }
+
+    @Test
+    void createGame_withUnknownTvCode_returns404() throws Exception {
+        mvc.perform(post("/api/games")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                        {"host": {"displayName": "Sam"}, "tvCode": "ZZZ999"}
+                        """))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.error.code").value("NOT_FOUND"));
+    }
+
+    @Test
     void joinWithSpacedCode_normalizes() throws Exception {
+        TvReg tv = registerTv();
         MvcResult createResult = mvc.perform(post("/api/games")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("""
-                        {"host": {"displayName": "Host"}}
-                        """))
+                        {"host": {"displayName": "Host"}, "tvCode": "%s"}
+                        """.formatted(tv.joinCode())))
                 .andExpect(status().isCreated()).andReturn();
 
         JsonNode body = mapper.readTree(createResult.getResponse().getContentAsString());

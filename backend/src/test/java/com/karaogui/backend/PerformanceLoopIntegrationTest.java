@@ -45,19 +45,25 @@ class PerformanceLoopIntegrationTest {
 
     @Test
     void karaokeLoop_announceConfirmEvaluateLock() throws Exception {
-        // 1. Create game (host)
+        // 1. Register TV and create game (host)
+        MvcResult tvResult = mvc.perform(post("/api/tv/register"))
+                .andExpect(status().isOk())
+                .andReturn();
+        JsonNode tvBody = mapper.readTree(tvResult.getResponse().getContentAsString());
+        String tvCode = tvBody.get("joinCode").asText();
+        String displayToken = tvBody.get("displayToken").asText();
+
         MvcResult createResult = mvc.perform(post("/api/games")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("""
-                        {"host": {"displayName": "Host"}}
-                        """))
+                        {"host": {"displayName": "Host"}, "tvCode": "%s"}
+                        """.formatted(tvCode)))
                 .andExpect(status().isCreated())
                 .andReturn();
 
         JsonNode createBody = mapper.readTree(createResult.getResponse().getContentAsString());
         String gameId = createBody.get("gameId").asText();
         String joinCode = createBody.get("joinCode").asText();
-        String displayToken = createBody.get("displayToken").asText();
         String hostToken = createBody.get("sessionToken").asText();
         String hostPlayerId = createBody.get("you").get("playerId").asText();
 
@@ -128,13 +134,22 @@ class PerformanceLoopIntegrationTest {
         // Small delay to ensure subscription is active
         Thread.sleep(200);
 
-        // 5. Host queues Karaoke with Ana and Bob as performers
+        // 5. Host registers a local video and queues Karaoke with Ana and Bob as performers
+        MvcResult regVideo = mvc.perform(post("/api/videos/local")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                        {"videoUrl": "/videos/test.mp4", "songTitle": "Test Song", "durationSeconds": 180}
+                        """))
+                .andExpect(status().isCreated())
+                .andReturn();
+        String videoId = mapper.readTree(regVideo.getResponse().getContentAsString()).get("videoId").asText();
+
         MvcResult queueResult = mvc.perform(post("/api/games/" + gameId + "/performances")
                 .header("Authorization", "Bearer " + hostToken)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("""
-                        {"type": "KARAOKE", "youtubeUrl": "https://youtu.be/test", "performerPlayerIds": ["%s", "%s"]}
-                        """.formatted(anaId, bobId)))
+                        {"type": "KARAOKE", "videoId": "%s", "performerPlayerIds": ["%s", "%s"]}
+                        """.formatted(videoId, anaId, bobId)))
                 .andExpect(status().isCreated())
                 .andReturn();
 

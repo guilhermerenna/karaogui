@@ -58,5 +58,7 @@ public record KaraoguiProperties(
             boolean likePoints,
             boolean pictureUpload,
             boolean challengeJob,
-            boolean randomAssignment) {}
+            boolean randomAssignment,
+            boolean youtube,
+            boolean videoDelete) {}
 }

@@ -3,6 +3,7 @@ package com.karaogui.backend.video;
 import com.karaogui.backend.auth.GameScopeException;
 import com.karaogui.backend.auth.PlayerIdentity;
 import com.karaogui.backend.auth.ScopeGuard;
+import com.karaogui.backend.config.KaraoguiProperties;
 import com.karaogui.backend.error.GameStateException;
 import com.karaogui.backend.performance.YoutubeMetadataClient;
 import com.karaogui.backend.player.Player;
@@ -30,20 +31,26 @@ public class VideoService {
     private final PlayerRepository playerRepo;
     private final YoutubeMetadataClient youtubeClient;
     private final VideoStorage videoStorage;
+    private final KaraoguiProperties props;
     private final Clock clock;
 
     public VideoService(VideoRepository videoRepo, PlayerRepository playerRepo,
-            YoutubeMetadataClient youtubeClient, VideoStorage videoStorage, Clock clock) {
+            YoutubeMetadataClient youtubeClient, VideoStorage videoStorage,
+            KaraoguiProperties props, Clock clock) {
         this.videoRepo = videoRepo;
         this.playerRepo = playerRepo;
         this.youtubeClient = youtubeClient;
         this.videoStorage = videoStorage;
+        this.props = props;
         this.clock = clock;
     }
 
     @Transactional
     public VideoDto importVideo(PlayerIdentity identity, ImportVideoRequest req) {
         ScopeGuard.requirePlayerScope(identity, identity.gameId());
+        if (!isYoutubeEnabled()) {
+            throw new GameStateException("YOUTUBE_DISABLED", "YouTube video import is currently disabled.");
+        }
         String url = req.youtubeUrl() != null ? req.youtubeUrl().trim() : "";
         String youtubeId = YoutubeMetadataClient.extractId(url);
         if (youtubeId == null) {
@@ -149,9 +156,16 @@ public class VideoService {
         // Fetch one extra row to determine hasMore without a separate count query.
         PageRequest req = PageRequest.of(0, safePage * PAGE_SIZE + PAGE_SIZE + 1);
         String q = query != null ? query.trim() : "";
-        List<Video> rows = q.isEmpty()
-                ? videoRepo.findAllByOrderByCreatedAtDesc(req)
-                : videoRepo.search(q, req);
+        List<Video> rows;
+        if (isYoutubeEnabled()) {
+            rows = q.isEmpty()
+                    ? videoRepo.findAllByOrderByCreatedAtDesc(req)
+                    : videoRepo.search(q, req);
+        } else {
+            rows = q.isEmpty()
+                    ? videoRepo.findAllLocalByOrderByCreatedAtDesc(req)
+                    : videoRepo.searchLocal(q, req);
+        }
 
         int from = safePage * PAGE_SIZE;
         if (from >= rows.size()) {
@@ -166,6 +180,9 @@ public class VideoService {
     @Transactional
     public void deleteVideo(PlayerIdentity identity, UUID videoId) {
         ScopeGuard.requirePlayerScope(identity, identity.gameId());
+        if (!isVideoDeleteEnabled()) {
+            throw new GameStateException("VIDEO_DELETE_DISABLED", "Deleting videos is currently disabled.");
+        }
         Player player = playerRepo.findByIdAndGameId(identity.playerId(), identity.gameId())
                 .orElseThrow(() -> new GameScopeException("FORBIDDEN", "Player not found in this game."));
         if (!player.isHost()) {
@@ -174,6 +191,14 @@ public class VideoService {
         Video video = videoRepo.findById(videoId)
                 .orElseThrow(() -> new EntityNotFoundException("Video not found: " + videoId));
         videoRepo.delete(video);
+    }
+
+    private boolean isYoutubeEnabled() {
+        return props.features() != null && props.features().youtube();
+    }
+
+    private boolean isVideoDeleteEnabled() {
+        return props.features() != null && props.features().videoDelete();
     }
 
     private VideoDto toDto(Video v) {

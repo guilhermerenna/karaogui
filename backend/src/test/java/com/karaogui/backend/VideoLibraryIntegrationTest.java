@@ -36,11 +36,16 @@ class VideoLibraryIntegrationTest {
     private record Game(String gameId, String joinCode, String hostToken) {}
 
     private Game createGameWithPlayers() throws Exception {
+        MvcResult tvResult = mvc.perform(post("/api/tv/register"))
+                .andExpect(status().isOk())
+                .andReturn();
+        String tvCode = mapper.readTree(tvResult.getResponse().getContentAsString()).get("joinCode").asText();
+
         MvcResult createResult = mvc.perform(post("/api/games")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("""
-                        {"host": {"displayName": "Host"}}
-                        """))
+                        {"host": {"displayName": "Host"}, "tvCode": "%s"}
+                        """.formatted(tvCode)))
                 .andExpect(status().isCreated())
                 .andReturn();
         JsonNode body = mapper.readTree(createResult.getResponse().getContentAsString());
@@ -60,43 +65,65 @@ class VideoLibraryIntegrationTest {
     }
 
     @Test
-    void importIsIdempotent_dedupesByYoutubeId() throws Exception {
+    void youtubeImportEndpoint_isDisabledByDefault() throws Exception {
         Game game = createGameWithPlayers();
 
-        MvcResult first = mvc.perform(post("/api/videos")
+        mvc.perform(post("/api/videos")
                 .header("Authorization", "Bearer " + game.hostToken())
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("""
                         {"youtubeUrl": "https://youtu.be/dedupe1", "songTitle": "Bohemian Rhapsody", "artist": "Queen"}
                         """))
-                .andExpect(status().isCreated())
-                .andReturn();
-        String firstId = mapper.readTree(first.getResponse().getContentAsString()).get("videoId").asText();
-
-        // Same URL again → same video row (dedupe by youtube_id)
-        MvcResult second = mvc.perform(post("/api/videos")
-                .header("Authorization", "Bearer " + game.hostToken())
-                .contentType(MediaType.APPLICATION_JSON)
-                .content("""
-                        {"youtubeUrl": "https://youtu.be/dedupe1"}
-                        """))
-                .andExpect(status().isCreated())
-                .andReturn();
-        String secondId = mapper.readTree(second.getResponse().getContentAsString()).get("videoId").asText();
-
-        assertThat(secondId).isEqualTo(firstId);
+                .andExpect(status().isMethodNotAllowed());
     }
 
     @Test
-    void search_findsByArtist() throws Exception {
+    void queuePerformance_rejectsYoutubeUrlAndYoutubeOnlyVideoWhenDisabled() throws Exception {
         Game game = createGameWithPlayers();
-        mvc.perform(post("/api/videos")
+        join(game.joinCode(), "Ana");
+        join(game.joinCode(), "Bob");
+
+        mvc.perform(post("/api/games/" + game.gameId() + "/start")
+                .header("Authorization", "Bearer " + game.hostToken()))
+                .andExpect(status().isOk());
+
+        mvc.perform(post("/api/games/" + game.gameId() + "/performances")
                 .header("Authorization", "Bearer " + game.hostToken())
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("""
-                        {"youtubeUrl": "https://youtu.be/searchme", "songTitle": "Wonderwall", "artist": "Oasis"}
+                        {"type": "KARAOKE", "youtubeUrl": "https://youtu.be/blocked"}
+                        """))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.error.code").value("YOUTUBE_DISABLED"));
+
+        UUID ytOnlyId = UUID.randomUUID();
+        videoRepo.save(new Video(ytOnlyId, "blockedyt", "https://youtu.be/blockedyt",
+                "Blocked YT", null, "Blocked Song", "Blocked Artist",
+                180L, Instant.now(), null));
+
+        mvc.perform(post("/api/games/" + game.gameId() + "/performances")
+                .header("Authorization", "Bearer " + game.hostToken())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                        {"type": "KARAOKE", "videoId": "%s"}
+                        """.formatted(ytOnlyId)))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.error.code").value("YOUTUBE_DISABLED"));
+    }
+
+    @Test
+    void search_findsLocalByArtist_andHidesYoutubeOnlyVideos() throws Exception {
+        Game game = createGameWithPlayers();
+        mvc.perform(post("/api/videos/local")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                        {"videoUrl": "/videos/oasis/wonderwall.mp4", "songTitle": "Wonderwall", "artist": "Oasis"}
                         """))
                 .andExpect(status().isCreated());
+
+        videoRepo.save(new Video(UUID.randomUUID(), "hiddenyt", "https://youtu.be/hiddenyt",
+                "Hidden YT", null, "Hidden Song", "HiddenYT",
+                200L, Instant.now(), null));
 
         MvcResult res = mvc.perform(get("/api/videos?q=oasis")
                 .header("Authorization", "Bearer " + game.hostToken()))
@@ -109,32 +136,30 @@ class VideoLibraryIntegrationTest {
             if ("Oasis".equals(v.path("artist").asText(null))) found = true;
         }
         assertThat(found).isTrue();
+
+        MvcResult hiddenRes = mvc.perform(get("/api/videos?q=HiddenYT")
+                .header("Authorization", "Bearer " + game.hostToken()))
+                .andExpect(status().isOk())
+                .andReturn();
+        assertThat(mapper.readTree(hiddenRes.getResponse().getContentAsString()).get("content")).isEmpty();
     }
 
     @Test
-    void delete_hostAllowed_nonHostForbidden() throws Exception {
+    void deleteVideoEndpoint_isDisabledByDefault() throws Exception {
         Game game = createGameWithPlayers();
-        String guestToken = join(game.joinCode(), "Guest");
 
-        MvcResult imported = mvc.perform(post("/api/videos")
-                .header("Authorization", "Bearer " + game.hostToken())
+        MvcResult imported = mvc.perform(post("/api/videos/local")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("""
-                        {"youtubeUrl": "https://youtu.be/deleteme", "songTitle": "Delete Me"}
+                        {"videoUrl": "/videos/delete-me.mp4", "songTitle": "Delete Me"}
                         """))
                 .andExpect(status().isCreated())
                 .andReturn();
         String videoId = mapper.readTree(imported.getResponse().getContentAsString()).get("videoId").asText();
 
-        // Non-host cannot delete
-        mvc.perform(delete("/api/videos/" + videoId)
-                .header("Authorization", "Bearer " + guestToken))
-                .andExpect(status().isForbidden());
-
-        // Host can delete
         mvc.perform(delete("/api/videos/" + videoId)
                 .header("Authorization", "Bearer " + game.hostToken()))
-                .andExpect(status().isNoContent());
+                .andExpect(status().isNotFound());
     }
 
     @Test
@@ -143,10 +168,10 @@ class VideoLibraryIntegrationTest {
         join(game.joinCode(), "Ana");
         join(game.joinCode(), "Bob");
 
-        // Seed a library video with a known duration (no API key in tests, so insert directly).
+        // Seed a local library video with a known duration.
         UUID videoId = UUID.randomUUID();
-        videoRepo.save(new Video(videoId, "seededid", "https://youtu.be/seededid",
-                "Seeded Video", "https://img/thumb.jpg", "Seed Song", "Seed Artist",
+        videoRepo.save(new Video(videoId, null, null, "seeded.mp4",
+                "Seeded Video", null, "Seed Song", "Seed Artist",
                 123L, Instant.now(), null));
 
         mvc.perform(post("/api/games/" + game.gameId() + "/start")
@@ -172,8 +197,7 @@ class VideoLibraryIntegrationTest {
         JsonNode current = mapper.readTree(snap.getResponse().getContentAsString()).get("currentPerformance");
         assertThat(current).isNotNull();
         assertThat(current.get("durationSeconds").asLong()).isEqualTo(123L);
-        // YouTube-only video has no local file, so videoId in performance payloads is null.
-        assertThat(current.get("videoId").isNull()).isTrue();
+        assertThat(current.get("videoId").asText()).isEqualTo(videoId.toString());
     }
 
     @Test
@@ -256,37 +280,5 @@ class VideoLibraryIntegrationTest {
         JsonNode current = mapper.readTree(snap.getResponse().getContentAsString()).get("currentPerformance");
         assertThat(current.get("videoId").asText()).isEqualTo(videoId);
         assertThat(current.get("durationSeconds").asLong()).isEqualTo(355L);
-
-        // Deleting a played video succeeds (ON DELETE SET NULL on performance.video_id).
-        mvc.perform(delete("/api/videos/" + videoId)
-                .header("Authorization", "Bearer " + game.hostToken()))
-                .andExpect(status().isNoContent());
-    }
-
-    @Test
-    void registerLocalVideo_attachesLocalPathToExistingYoutubeVideo() throws Exception {
-        Game game = createGameWithPlayers();
-
-        MvcResult imported = mvc.perform(post("/api/videos")
-                .header("Authorization", "Bearer " + game.hostToken())
-                .contentType(MediaType.APPLICATION_JSON)
-                .content("""
-                        {"youtubeUrl": "https://youtu.be/hybrid123", "songTitle": "Hybrid Song"}
-                        """))
-                .andExpect(status().isCreated())
-                .andReturn();
-        String videoId = mapper.readTree(imported.getResponse().getContentAsString()).get("videoId").asText();
-
-        MvcResult attached = mvc.perform(post("/api/videos/local")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content("""
-                        {"videoId": "%s", "videoUrl": "hybrid-song.mp4"}
-                        """.formatted(videoId)))
-                .andExpect(status().isCreated())
-                .andReturn();
-        JsonNode attachedBody = mapper.readTree(attached.getResponse().getContentAsString());
-        assertThat(attachedBody.get("videoId").asText()).isEqualTo(videoId);
-        assertThat(attachedBody.get("hasLocalFile").asBoolean()).isTrue();
-        assertThat(attachedBody.get("youtubeUrl").asText()).isEqualTo("https://youtu.be/hybrid123");
     }
 }
