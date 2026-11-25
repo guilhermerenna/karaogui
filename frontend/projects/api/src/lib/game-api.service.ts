@@ -1,4 +1,4 @@
-import { Injectable, inject } from '@angular/core';
+import { Injectable, inject, isDevMode } from '@angular/core';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import type {
@@ -14,14 +14,17 @@ import type {
   VideoSearchResponse,
 } from 'contracts';
 
-const BASE = `http://${window.location.hostname}:8080/api`;
+export function resolveApiBase(): string {
+  return isDevMode() ? `http://${window.location.hostname}:8080/api` : '/api';
+}
 
 @Injectable({ providedIn: 'root' })
 export class GameApiService {
   private http = inject(HttpClient);
+  private readonly base = resolveApiBase();
 
   createGame(displayName: string, tvCode?: string): Observable<CreateGameResponse> {
-    return this.http.post<CreateGameResponse>(`${BASE}/games`, {
+    return this.http.post<CreateGameResponse>(`${this.base}/games`, {
       host: { displayName },
       ...(tvCode ? { tvCode } : {}),
     });
@@ -29,12 +32,12 @@ export class GameApiService {
 
   registerTv(): Observable<{ joinCode: string; joinCodeDisplay: string; displayToken: string }> {
     return this.http.post<{ joinCode: string; joinCodeDisplay: string; displayToken: string }>(
-      `${BASE}/tv/register`, {}
+      `${this.base}/tv/register`, {}
     );
   }
 
   joinGame(joinCode: string, displayName: string): Observable<CreateGameResponse> {
-    return this.http.post<CreateGameResponse>(`${BASE}/games/join`, {
+    return this.http.post<CreateGameResponse>(`${this.base}/games/join`, {
       joinCode,
       player: { displayName },
     });
@@ -42,27 +45,27 @@ export class GameApiService {
 
   startGame(gameId: string, token: string): Observable<GameSnapshotDto> {
     return this.http.post<GameSnapshotDto>(
-      `${BASE}/games/${gameId}/start`,
+      `${this.base}/games/${gameId}/start`,
       null,
       { headers: this.authHeaders(token) },
     );
   }
 
   getSnapshot(gameId: string, token: string): Observable<GameSnapshotDto> {
-    return this.http.get<GameSnapshotDto>(`${BASE}/games/${gameId}`, {
+    return this.http.get<GameSnapshotDto>(`${this.base}/games/${gameId}`, {
       headers: this.authHeaders(token),
     });
   }
 
   getSnapshotByCode(joinCode: string, token: string): Observable<GameSnapshotDto> {
-    return this.http.get<GameSnapshotDto>(`${BASE}/games/by-code/${joinCode}`, {
+    return this.http.get<GameSnapshotDto>(`${this.base}/games/by-code/${joinCode}`, {
       headers: this.authHeaders(token),
     });
   }
 
   queuePerformance(gameId: string, token: string, req: QueuePerformanceRequest): Observable<CurrentPerformanceDto> {
     return this.http.post<CurrentPerformanceDto>(
-      `${BASE}/games/${gameId}/performances`,
+      `${this.base}/games/${gameId}/performances`,
       req,
       { headers: this.authHeaders(token) },
     );
@@ -70,7 +73,7 @@ export class GameApiService {
 
   confirmSlot(gameId: string, perfId: number, token: string): Observable<void> {
     return this.http.post<void>(
-      `${BASE}/games/${gameId}/performances/${perfId}/confirm`,
+      `${this.base}/games/${gameId}/performances/${perfId}/confirm`,
       null,
       { headers: this.authHeaders(token) },
     );
@@ -78,7 +81,7 @@ export class GameApiService {
 
   volunteerSlot(gameId: string, perfId: number, token: string): Observable<void> {
     return this.http.post<void>(
-      `${BASE}/games/${gameId}/performances/${perfId}/volunteer`,
+      `${this.base}/games/${gameId}/performances/${perfId}/volunteer`,
       null,
       { headers: this.authHeaders(token) },
     );
@@ -86,7 +89,7 @@ export class GameApiService {
 
   submitEvaluation(gameId: string, perfId: number, token: string, req: EvaluateRequest): Observable<void> {
     return this.http.post<void>(
-      `${BASE}/games/${gameId}/performances/${perfId}/evaluate`,
+      `${this.base}/games/${gameId}/performances/${perfId}/evaluate`,
       req,
       { headers: this.authHeaders(token) },
     );
@@ -94,7 +97,7 @@ export class GameApiService {
 
   submitRating(gameId: string, perfId: number, token: string, req: RateRequest): Observable<void> {
     return this.http.post<void>(
-      `${BASE}/games/${gameId}/performances/${perfId}/rate`,
+      `${this.base}/games/${gameId}/performances/${perfId}/rate`,
       req,
       { headers: this.authHeaders(token) },
     );
@@ -102,7 +105,7 @@ export class GameApiService {
 
   endGame(gameId: string, token: string): Observable<void> {
     return this.http.post<void>(
-      `${BASE}/games/${gameId}/end`,
+      `${this.base}/games/${gameId}/end`,
       null,
       { headers: this.authHeaders(token) },
     );
@@ -110,7 +113,7 @@ export class GameApiService {
 
   postComment(gameId: string, token: string, body: string): Observable<CommentDto> {
     return this.http.post<CommentDto>(
-      `${BASE}/games/${gameId}/comments`,
+      `${this.base}/games/${gameId}/comments`,
       { body },
       { headers: this.authHeaders(token) },
     );
@@ -118,7 +121,7 @@ export class GameApiService {
 
   likeComment(gameId: string, token: string, commentId: string): Observable<void> {
     return this.http.post<void>(
-      `${BASE}/games/${gameId}/comments/${commentId}/like`,
+      `${this.base}/games/${gameId}/comments/${commentId}/like`,
       null,
       { headers: this.authHeaders(token) },
     );
@@ -126,7 +129,7 @@ export class GameApiService {
 
   getComments(gameId: string, token: string, page = 0): Observable<CommentDto[]> {
     return this.http.get<CommentDto[]>(
-      `${BASE}/games/${gameId}/comments?page=${page}`,
+      `${this.base}/games/${gameId}/comments?page=${page}`,
       { headers: this.authHeaders(token) },
     );
   }
@@ -134,14 +137,14 @@ export class GameApiService {
   searchVideos(token: string, q = '', page = 0): Observable<VideoSearchResponse> {
     const params = new URLSearchParams({ q, page: String(page) });
     return this.http.get<VideoSearchResponse>(
-      `${BASE}/videos?${params.toString()}`,
+      `${this.base}/videos?${params.toString()}`,
       { headers: this.authHeaders(token) },
     );
   }
 
   importVideo(token: string, req: ImportVideoRequest): Observable<VideoDto> {
     return this.http.post<VideoDto>(
-      `${BASE}/videos`,
+      `${this.base}/videos`,
       req,
       { headers: this.authHeaders(token) },
     );
@@ -149,13 +152,13 @@ export class GameApiService {
 
   deleteVideo(token: string, videoId: string): Observable<void> {
     return this.http.delete<void>(
-      `${BASE}/videos/${videoId}`,
+      `${this.base}/videos/${videoId}`,
       { headers: this.authHeaders(token) },
     );
   }
 
   getVideoStreamUrl(videoId: string): string {
-    return `${BASE}/videos/${videoId}/stream`;
+    return `${this.base}/videos/${videoId}/stream`;
   }
 
   private authHeaders(token: string): HttpHeaders {

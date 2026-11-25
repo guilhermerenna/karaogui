@@ -271,4 +271,81 @@ class GameLobbyIntegrationTest {
                         """.formatted(displayCode)))
                 .andExpect(status().isCreated());
     }
+
+    @Test
+    void comments_clampsPage_andBlocksCrossGameLike() throws Exception {
+        TvReg tv1 = registerTv();
+        MvcResult g1Res = mvc.perform(post("/api/games")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                        {"host": {"displayName": "Host1"}, "tvCode": "%s"}
+                        """.formatted(tv1.joinCode())))
+                .andExpect(status().isCreated()).andReturn();
+        JsonNode g1Body = mapper.readTree(g1Res.getResponse().getContentAsString());
+        String game1Id = g1Body.get("gameId").asText();
+        String game1Code = g1Body.get("joinCode").asText();
+        String host1Token = g1Body.get("sessionToken").asText();
+
+        mvc.perform(post("/api/games/join")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                        {"joinCode": "%s", "player": {"displayName": "Ana"}}
+                        """.formatted(game1Code)))
+                .andExpect(status().isCreated());
+        mvc.perform(post("/api/games/join")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                        {"joinCode": "%s", "player": {"displayName": "Bob"}}
+                        """.formatted(game1Code)))
+                .andExpect(status().isCreated());
+
+        mvc.perform(post("/api/games/" + game1Id + "/start")
+                .header("Authorization", "Bearer " + host1Token))
+                .andExpect(status().isOk());
+
+        MvcResult commentRes = mvc.perform(post("/api/games/" + game1Id + "/comments")
+                .header("Authorization", "Bearer " + host1Token)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                        {"body": "Great singing!"}
+                        """))
+                .andExpect(status().isCreated()).andReturn();
+        String commentId = mapper.readTree(commentRes.getResponse().getContentAsString()).get("commentId").asText();
+
+        mvc.perform(get("/api/games/" + game1Id + "/comments?page=-1")
+                .header("Authorization", "Bearer " + host1Token))
+                .andExpect(status().isOk());
+        mvc.perform(get("/api/games/" + game1Id + "/comments?page=99999999")
+                .header("Authorization", "Bearer " + host1Token))
+                .andExpect(status().isOk());
+
+        TvReg tv2 = registerTv();
+        MvcResult g2Res = mvc.perform(post("/api/games")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                        {"host": {"displayName": "Host2"}, "tvCode": "%s"}
+                        """.formatted(tv2.joinCode())))
+                .andExpect(status().isCreated()).andReturn();
+        JsonNode g2Body = mapper.readTree(g2Res.getResponse().getContentAsString());
+        String game2Id = g2Body.get("gameId").asText();
+        String host2Token = g2Body.get("sessionToken").asText();
+
+        mvc.perform(post("/api/games/" + game2Id + "/comments/" + commentId + "/like")
+                .header("Authorization", "Bearer " + host2Token))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void cors_rejectsDisallowedOrigin_andAllowsConfiguredOrigin() throws Exception {
+        mvc.perform(options("/api/games/join")
+                .header("Origin", "https://evil.example.com")
+                .header("Access-Control-Request-Method", "POST"))
+                .andExpect(status().isForbidden());
+
+        mvc.perform(options("/api/games/join")
+                .header("Origin", "http://localhost:4201")
+                .header("Access-Control-Request-Method", "POST"))
+                .andExpect(status().isOk())
+                .andExpect(header().string("Access-Control-Allow-Origin", "http://localhost:4201"));
+    }
 }

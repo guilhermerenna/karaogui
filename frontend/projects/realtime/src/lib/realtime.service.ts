@@ -1,4 +1,4 @@
-import { Injectable, signal, Signal, computed } from '@angular/core';
+import { Injectable, isDevMode, signal, Signal, computed } from '@angular/core';
 import { Client, IMessage } from '@stomp/stompjs';
 import { Subject } from 'rxjs';
 import {
@@ -20,6 +20,14 @@ import {
   RankingUpdatedData,
   SlotStateChangedData,
 } from 'contracts';
+
+export function resolveWsUrl(): string {
+  if (isDevMode()) {
+    return `ws://${window.location.hostname}:8080/ws`;
+  }
+  const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+  return `${protocol}//${window.location.host}/ws`;
+}
 
 @Injectable({ providedIn: 'root' })
 export class RealtimeService {
@@ -54,7 +62,7 @@ export class RealtimeService {
     this._topicSeq.clear();
 
     this.client = new Client({
-      brokerURL: `ws://${window.location.hostname}:8080/ws`,
+      brokerURL: resolveWsUrl(),
       connectHeaders: {
         Authorization: `Bearer ${token}`,
         surface,

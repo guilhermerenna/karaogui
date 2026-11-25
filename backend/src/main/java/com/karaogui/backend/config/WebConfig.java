@@ -14,15 +14,17 @@ import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 class WebConfig implements WebMvcConfigurer {
 
     private final TokenAuthFilter tokenAuthFilter;
+    private final KaraoguiProperties props;
 
-    WebConfig(TokenAuthFilter tokenAuthFilter) {
+    WebConfig(TokenAuthFilter tokenAuthFilter, KaraoguiProperties props) {
         this.tokenAuthFilter = tokenAuthFilter;
+        this.props = props;
     }
 
     @Override
     public void addCorsMappings(CorsRegistry registry) {
         registry.addMapping("/api/**")
-                .allowedOriginPatterns("*")
+                .allowedOriginPatterns(props.allowedOriginPatterns())
                 .allowedMethods("GET", "HEAD", "POST", "PUT", "DELETE", "OPTIONS")
                 .allowedHeaders("*")
                 .exposedHeaders("Content-Range", "Accept-Ranges", "Content-Length")

@@ -3,7 +3,7 @@ import { ActivatedRoute } from '@angular/router';
 import { HttpErrorResponse } from '@angular/common/http';
 import { Client, IMessage } from '@stomp/stompjs';
 import { GameApiService } from 'api';
-import { RealtimeService } from 'realtime';
+import { RealtimeService, resolveWsUrl } from 'realtime';
 import { LocalVideoPlayerComponent, YoutubeVideoPlayerComponent, formatAppVersion } from 'ui';
 
 @Component({
@@ -147,7 +147,7 @@ export class TvLobbyComponent implements OnInit, OnDestroy {
         };
 
         const client = new Client({
-          brokerURL: `ws://${window.location.hostname}:8080/ws`,
+          brokerURL: resolveWsUrl(),
           connectHeaders: { Authorization: `Bearer ${reg.displayToken}`, surface: 'TV' },
           reconnectDelay: 0,
           onConnect: () => {

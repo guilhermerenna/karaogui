@@ -25,6 +25,7 @@ public class CommentService {
 
     private static final int MAX_BODY_LENGTH = 280;
     private static final int PAGE_SIZE = 20;
+    private static final int MAX_PAGE = 500;
 
     private final CommentRepository commentRepo;
     private final CommentLikeRepository likeRepo;
@@ -70,6 +71,9 @@ public class CommentService {
         ScopeGuard.requirePlayerScope(identity, gameId);
         Comment comment = commentRepo.findById(commentId)
                 .orElseThrow(() -> new EntityNotFoundException("Comment not found: " + commentId));
+        if (!comment.getGameId().equals(gameId)) {
+            throw new EntityNotFoundException("Comment not found: " + commentId);
+        }
         Game game = requireGame(gameId);
         boolean liked = likeRepo.existsByIdCommentIdAndIdPlayerId(commentId, identity.playerId());
         if (liked) {
@@ -90,8 +94,9 @@ public class CommentService {
     public List<CommentDto> getComments(UUID gameId, PlayerIdentity identity, int page) {
         ScopeGuard.requireScope(identity, gameId);
         requireGame(gameId);
+        int safePage = Math.clamp(page, 0, MAX_PAGE);
         List<Comment> comments = commentRepo.findByGameIdOrderByCreatedAtDesc(
-                gameId, PageRequest.of(page, PAGE_SIZE));
+                gameId, PageRequest.of(safePage, PAGE_SIZE));
         return comments.stream().map(c -> {
             String name = playerRepo.findById(c.getAuthorPlayerId())
                     .map(Player::getDisplayName).orElse("?");

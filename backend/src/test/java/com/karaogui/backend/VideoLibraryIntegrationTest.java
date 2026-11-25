@@ -281,4 +281,17 @@ class VideoLibraryIntegrationTest {
         assertThat(current.get("videoId").asText()).isEqualTo(videoId);
         assertThat(current.get("durationSeconds").asLong()).isEqualTo(355L);
     }
+
+    @Test
+    void search_clampsHugeAndNegativePage() throws Exception {
+        Game game = createGameWithPlayers();
+
+        mvc.perform(get("/api/videos?page=99999999")
+                .header("Authorization", "Bearer " + game.hostToken()))
+                .andExpect(status().isOk());
+
+        mvc.perform(get("/api/videos?page=-5")
+                .header("Authorization", "Bearer " + game.hostToken()))
+                .andExpect(status().isOk());
+    }
 }

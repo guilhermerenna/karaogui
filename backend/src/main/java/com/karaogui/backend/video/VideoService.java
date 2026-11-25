@@ -26,6 +26,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class VideoService {
 
     static final int PAGE_SIZE = 6;
+    static final int MAX_PAGE = 500;
 
     private final VideoRepository videoRepo;
     private final PlayerRepository playerRepo;
@@ -152,7 +153,7 @@ public class VideoService {
     @Transactional(readOnly = true)
     public VideoSearchResponse search(PlayerIdentity identity, String query, int page) {
         ScopeGuard.requireScope(identity, identity.gameId());
-        int safePage = Math.max(0, page);
+        int safePage = Math.clamp(page, 0, MAX_PAGE);
         // Fetch one extra row to determine hasMore without a separate count query.
         PageRequest req = PageRequest.of(0, safePage * PAGE_SIZE + PAGE_SIZE + 1);
         String q = query != null ? query.trim() : "";

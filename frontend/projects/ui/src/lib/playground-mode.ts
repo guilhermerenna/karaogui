@@ -1,4 +1,4 @@
-import { DestroyRef, inject, Signal, signal } from '@angular/core';
+import { DestroyRef, inject, isDevMode, Signal, signal } from '@angular/core';
 
 declare global {
   interface Window {
@@ -38,6 +38,9 @@ function writeStoredFlag(enabled: boolean): void {
  * - Set `window.playground = false` to exit Playground mode and load the real app.
  */
 export function usePlaygroundMode(): Signal<boolean> {
+  if (!isDevMode()) {
+    return signal(false).asReadonly();
+  }
   const win = typeof window !== 'undefined' ? window : undefined;
   if (!win) {
     return signal(false).asReadonly();

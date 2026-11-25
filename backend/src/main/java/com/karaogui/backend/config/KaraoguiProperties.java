@@ -15,7 +15,14 @@ public record KaraoguiProperties(
         Assignment assignment,
         Scoring scoring,
         Challenge challenge,
-        Features features) {
+        Features features,
+        Security security) {
+
+    public String[] allowedOriginPatterns() {
+        return security != null
+                ? security.resolvedAllowedOriginPatterns()
+                : new Security(null).resolvedAllowedOriginPatterns();
+    }
 
     public record Videos(
             Path rootDir,
@@ -61,4 +68,26 @@ public record KaraoguiProperties(
             boolean randomAssignment,
             boolean youtube,
             boolean videoDelete) {}
+
+    public record Security(
+            List<String> allowedOriginPatterns) {
+
+        private static final List<String> DEFAULT_ORIGINS = List.of(
+                "http://localhost:*",
+                "http://127.0.0.1:*",
+                "http://192.168.*:*",
+                "http://10.*:*",
+                "http://172.16.*:*");
+
+        public String[] resolvedAllowedOriginPatterns() {
+            if (allowedOriginPatterns == null) {
+                return DEFAULT_ORIGINS.toArray(String[]::new);
+            }
+            List<String> cleaned = allowedOriginPatterns.stream()
+                    .filter(s -> s != null && !s.isBlank())
+                    .map(String::trim)
+                    .toList();
+            return (cleaned.isEmpty() ? DEFAULT_ORIGINS : cleaned).toArray(String[]::new);
+        }
+    }
 }

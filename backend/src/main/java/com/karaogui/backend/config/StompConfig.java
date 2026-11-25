@@ -13,15 +13,17 @@ import org.springframework.web.socket.config.annotation.WebSocketMessageBrokerCo
 public class StompConfig implements WebSocketMessageBrokerConfigurer {
 
     private final StompAuthInterceptor stompAuthInterceptor;
+    private final KaraoguiProperties props;
 
-    public StompConfig(StompAuthInterceptor stompAuthInterceptor) {
+    public StompConfig(StompAuthInterceptor stompAuthInterceptor, KaraoguiProperties props) {
         this.stompAuthInterceptor = stompAuthInterceptor;
+        this.props = props;
     }
 
     @Override
     public void registerStompEndpoints(StompEndpointRegistry registry) {
         registry.addEndpoint("/ws")
-                .setAllowedOriginPatterns("*");
+                .setAllowedOriginPatterns(props.allowedOriginPatterns());
     }
 
     @Override
