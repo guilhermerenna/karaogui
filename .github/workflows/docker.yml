@@ -32,6 +32,7 @@ jobs:
           fi
           echo "backend=ghcr.io/${repository}-backend" >> "$GITHUB_OUTPUT"
           echo "frontend=ghcr.io/${repository}-frontend" >> "$GITHUB_OUTPUT"
+          echo "gateway=ghcr.io/${repository}-gateway" >> "$GITHUB_OUTPUT"
           echo "version=${version}" >> "$GITHUB_OUTPUT"
           echo "sha=${short_sha}" >> "$GITHUB_OUTPUT"
           echo "built_at=${built_at}" >> "$GITHUB_OUTPUT"
@@ -54,6 +55,19 @@ jobs:
         uses: docker/metadata-action@v5
         with:
           images: ${{ steps.build_meta.outputs.frontend }}
+          flavor: |
+            latest=auto
+          tags: |
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=sha,prefix=
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - name: Docker metadata (gateway)
+        id: meta_gateway
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ steps.build_meta.outputs.gateway }}
           flavor: |
             latest=auto
           tags: |
@@ -101,3 +115,14 @@ jobs:
             APP_VERSION=${{ steps.build_meta.outputs.version }}
             GIT_SHA=${{ steps.build_meta.outputs.sha }}
             BUILD_TIME=${{ steps.build_meta.outputs.built_at }}
+
+      - name: Build and push gateway
+        uses: docker/build-push-action@v6
+        with:
+          context: ./gateway
+          file: ./gateway/Dockerfile
+          platforms: linux/amd64
+          provenance: false
+          push: true
+          tags: ${{ steps.meta_gateway.outputs.tags }}
+          labels: ${{ steps.meta_gateway.outputs.labels }}

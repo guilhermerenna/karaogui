@@ -49,3 +49,19 @@ services:
         condition: service_healthy
     ports:
       - '8090:80'
+
+  gateway:
+    image: ghcr.io/guilhermerenna/karaogui-gateway:latest
+    pull_policy: always
+    restart: unless-stopped
+    depends_on:
+      backend:
+        condition: service_healthy
+      frontend:
+        condition: service_started
+    environment:
+      KARAOKE_DOMAIN: ${KARAOKE_DOMAIN:-<<YOUR_DOMAIN>>}
+    volumes:
+      - ${CERTS_HOST_DIR:-/mnt/apps/karaogui/certs}:/etc/nginx/certs:ro
+    ports:
+      - '8443:443'

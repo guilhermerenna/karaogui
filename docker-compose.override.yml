@@ -8,3 +8,8 @@ services:
   frontend:
     build: ./frontend
     pull_policy: build
+
+  gateway:
+    build: ./gateway
+    pull_policy: build
+    profiles: [public]

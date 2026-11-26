@@ -1,0 +1,161 @@
+worker_processes auto;
+
+events {
+    worker_connections 1024;
+}
+
+http {
+    include       /etc/nginx/mime.types;
+    default_type  application/octet-stream;
+
+    sendfile          on;
+    keepalive_timeout 65;
+    server_tokens     off;
+
+    limit_req_zone  $binary_remote_addr zone=karaoke_join:10m rate=2r/s;
+    limit_req_zone  $binary_remote_addr zone=karaoke_tv_reg:10m rate=2r/m;
+    limit_req_zone  $binary_remote_addr zone=karaoke_api:10m rate=15r/s;
+    limit_conn_zone $binary_remote_addr zone=karaoke_stream_conn:10m;
+
+    # Reject unknown SNI / Host / raw-IP TLS handshakes without exposing a certificate.
+    server {
+        listen 443 ssl default_server;
+        http2 on;
+        server_name _;
+        ssl_reject_handshake on;
+    }
+
+    server {
+        listen 443 ssl;
+        http2 on;
+        server_name ${KARAOKE_DOMAIN};
+
+        ssl_certificate     /etc/nginx/certs/fullchain.pem;
+        ssl_certificate_key /etc/nginx/certs/privkey.pem;
+        ssl_protocols       TLSv1.2 TLSv1.3;
+        ssl_prefer_server_ciphers off;
+        ssl_session_cache   shared:SSL:10m;
+        ssl_session_timeout 1d;
+
+        # Phones & TV only send small JSON payloads
+        client_max_body_size 512k;
+        client_body_timeout  10s;
+        client_header_timeout 10s;
+
+        # Security headers (inherited by all locations without local add_header)
+        add_header Strict-Transport-Security "max-age=63072000; includeSubDomains" always;
+        add_header X-Content-Type-Options nosniff always;
+        add_header X-Frame-Options DENY always;
+        add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+
+        # 1. Block Spring Actuator and dev Playgrounds completely
+        location ^~ /actuator {
+            return 404;
+        }
+        location ^~ /playground {
+            return 404;
+        }
+        location ^~ /tv/playground {
+            return 404;
+        }
+
+        # 2. Default-deny for ALL /api/ paths not explicitly whitelisted below.
+        #    Blocks all host-only & internal endpoints externally:
+        #    - POST /api/games (create game -> WireGuard only)
+        #    - POST /api/games/{id}/start & /end (host controls -> WireGuard only)
+        #    - POST /api/videos, POST /api/videos/local, DELETE /api/videos/{id}
+        location /api/ {
+            return 404;
+        }
+
+        # 3. TV pairing & snapshot-by-code -> backend :8080
+        location = /api/tv/register {
+            limit_req zone=karaoke_tv_reg burst=3 nodelay;
+            limit_except POST OPTIONS { deny all; }
+            proxy_pass http://backend:8080;
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+        }
+
+        location ~ ^/api/games/by-code/[A-Za-z0-9]+$ {
+            limit_req zone=karaoke_api burst=10 nodelay;
+            limit_except GET OPTIONS { deny all; }
+            proxy_pass http://backend:8080;
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+        }
+
+        # 4. Join game ONLY -> backend :8080
+        location = /api/games/join {
+            limit_req zone=karaoke_join burst=5 nodelay;
+            limit_except POST OPTIONS { deny all; }
+            proxy_pass http://backend:8080;
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+        }
+
+        # 5. Game-scoped Phone + TV endpoints (excludes start & end -> WireGuard only)
+        location ~ ^/api/games/[0-9a-fA-F-]+(/(players(/me)?|ranking|performances(/[0-9]+(/(confirm|volunteer|evaluate|rate))?)?|comments(/[0-9a-fA-F-]+/like)?))?$ {
+            limit_req zone=karaoke_api burst=20 nodelay;
+            limit_except GET POST OPTIONS { deny all; }
+            proxy_pass http://backend:8080;
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+        }
+
+        # 6. Local video library search (GET only) & TV video streaming (unbuffered + bandwidth-capped)
+        location = /api/videos {
+            limit_req zone=karaoke_api burst=10 nodelay;
+            limit_except GET OPTIONS { deny all; }
+            proxy_pass http://backend:8080;
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+        }
+
+        location ~ ^/api/videos/[0-9a-fA-F-]+/stream$ {
+            limit_conn karaoke_stream_conn 4;
+            limit_rate 2m;
+            limit_except GET HEAD OPTIONS { deny all; }
+            proxy_pass http://backend:8080;
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+            proxy_buffering off;
+            proxy_request_buffering off;
+        }
+
+        # 7. STOMP WebSocket -> backend :8080
+        location = /ws {
+            proxy_pass http://backend:8080;
+            proxy_http_version 1.1;
+            proxy_set_header Upgrade $http_upgrade;
+            proxy_set_header Connection "upgrade";
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+            proxy_read_timeout 3600s;
+            proxy_send_timeout 3600s;
+        }
+
+        # 8. Phone (/) & TV (/tv/) SPAs -> frontend :80
+        location / {
+            proxy_pass http://frontend:80;
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+        }
+    }
+}
