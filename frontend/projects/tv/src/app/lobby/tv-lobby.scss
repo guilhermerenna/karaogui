@@ -223,6 +223,63 @@
   margin-top: .75rem;
 }
 
+.tv-confirm-performers {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 1rem;
+  margin: 1.5rem 0 .75rem;
+  width: 100%;
+}
+
+.tv-confirm-chip {
+  display: flex;
+  align-items: center;
+  gap: .65rem;
+  padding: .75rem 1.25rem;
+  border-radius: 12px;
+  background: #0f172a;
+  border: 2px solid #334155;
+  transition: background-color .25s ease, border-color .25s ease;
+
+  &.pending {
+    background: rgba(66, 32, 6, .75);
+    border-color: #f59e0b;
+  }
+
+  &.confirmed {
+    background: rgba(20, 83, 45, .85);
+    border-color: #22c55e;
+  }
+}
+
+.tv-confirm-icon {
+  font-size: 1.35rem;
+  line-height: 1;
+}
+
+.tv-confirm-name {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #f8fafc;
+}
+
+.tv-confirm-status {
+  font-size: .85rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .06em;
+  color: #cbd5e1;
+
+  .pending & {
+    color: #fcd34d;
+  }
+
+  .confirmed & {
+    color: #86efac;
+  }
+}
+
 .tv-video-player {
   display: block;
   width: 100%;

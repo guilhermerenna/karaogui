@@ -65,8 +65,23 @@
               <div class="tv-perf-banner confirming">
                 <div class="tv-perf-title">Confirming performers…</div>
                 <div class="tv-countdown">{{ secondsLeft() }}s</div>
+                <div class="tv-confirm-performers">
+                  @for (slot of perf.slots; track slot.slotId) {
+                    <div class="tv-confirm-chip"
+                      [class.confirmed]="slot.state === 'CONFIRMED' || slot.state === 'REPLACED'"
+                      [class.pending]="slot.state === 'PENDING'">
+                      <span class="tv-confirm-icon" aria-hidden="true">
+                        {{ slot.state === 'CONFIRMED' || slot.state === 'REPLACED' ? '✓' : '🎤' }}
+                      </span>
+                      <span class="tv-confirm-name">{{ slot.currentPlayerName }}</span>
+                      <span class="tv-confirm-status">
+                        {{ slot.state === 'CONFIRMED' ? 'Ready' : slot.state === 'REPLACED' ? 'Sub ready' : 'Waiting…' }}
+                      </span>
+                    </div>
+                  }
+                </div>
                 <div class="tv-perf-hint">
-                  Perform to confirm on your phone
+                  Confirm on your phone to start
                 </div>
               </div>
             }
