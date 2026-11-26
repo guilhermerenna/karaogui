@@ -1,0 +1,35 @@
+<footer class="upcoming-footer" aria-label="Up next">
+  <div class="upcoming-header">
+    <span class="upcoming-title">Up Next</span>
+    <span class="upcoming-count">{{ items().length }}</span>
+    @if (pageCount() > 1) {
+      <div class="upcoming-dots" aria-hidden="true">
+        @for (dot of pageDots(); track $index) {
+          <span class="upcoming-dot" [class.active]="$index === activePage()"></span>
+        }
+      </div>
+    }
+  </div>
+
+  <div class="upcoming-cards">
+    @for (card of visibleCards(); track card.item.performanceId) {
+      <div class="upcoming-card" [class.is-next]="card.position === 1">
+        <span class="upcoming-badge">
+          {{ card.position === 1 ? 'NEXT' : '#' + card.position }}
+        </span>
+        <div class="upcoming-info">
+          <div class="upcoming-song-row">
+            <span class="upcoming-song">{{ songLabel(card.item) }}</span>
+            @if (card.item.artist) {
+              <span class="upcoming-artist">— {{ card.item.artist }}</span>
+            }
+          </div>
+          <div class="upcoming-singers">
+            <span class="upcoming-mic" aria-hidden="true">🎤</span>
+            <span class="upcoming-singer-names">{{ singersLabel(card.item) }}</span>
+          </div>
+        </div>
+      </div>
+    }
+  </div>
+</footer>

@@ -16,6 +16,8 @@ import {
   PerformanceStartedData,
   PlayerDto,
   PlayerJoinedData,
+  QueuedPerformanceDto,
+  QueueUpdatedData,
   RankingEntry,
   RankingUpdatedData,
   SlotStateChangedData,
@@ -43,6 +45,7 @@ export class RealtimeService {
   private _queueNonEmpty = signal<boolean>(false);
   private _comments = signal<CommentDto[]>([]);
   private _lockedScores = signal<{ playerId: string; displayName: string; points: number }[]>([]);
+  private _upcomingQueue = signal<QueuedPerformanceDto[]>([]);
   private _topicSeq = new Map<string, number>();
 
   readonly players$: Signal<PlayerDto[]> = this._players.asReadonly();
@@ -54,6 +57,7 @@ export class RealtimeService {
   readonly queueNonEmpty$: Signal<boolean> = this._queueNonEmpty.asReadonly();
   readonly comments$: Signal<CommentDto[]> = this._comments.asReadonly();
   readonly lockedScores$: Signal<{ playerId: string; displayName: string; points: number }[]> = this._lockedScores.asReadonly();
+  readonly upcomingQueue$: Signal<QueuedPerformanceDto[]> = this._upcomingQueue.asReadonly();
 
   readonly resnap$ = new Subject<void>();
 
@@ -84,7 +88,9 @@ export class RealtimeService {
     this._currentPerformance.set(perf && perf.performanceId ? perf : null);
     this._judgeIds.set(perf?.judgePlayerIds ?? []);
     this._gameEnded.set(snap.state === 'OVER');
-    this._queueNonEmpty.set(snap.queueNonEmpty ?? false);
+    const upcoming = snap.upcomingQueue ?? [];
+    this._upcomingQueue.set(upcoming);
+    this._queueNonEmpty.set(snap.queueNonEmpty ?? upcoming.length > 0);
   }
 
   prependComments(comments: CommentDto[]): void {
@@ -132,6 +138,11 @@ export class RealtimeService {
         } else if (event.type === 'GAME_ENDED') {
           this._gameState.set('OVER');
           this._gameEnded.set(true);
+        } else if (event.type === 'QUEUE_UPDATED') {
+          const d = event.data as QueueUpdatedData;
+          const list = d.upcomingQueue ?? [];
+          this._upcomingQueue.set(list);
+          this._queueNonEmpty.set(list.length > 0);
         }
       }
     });

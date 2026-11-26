@@ -143,6 +143,15 @@ public class GameEventPublisher {
                 new GameEvent.CommentLikedData(event.commentId(), event.likeCount())));
     }
 
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+    public void onQueueUpdated(GameDomainEvent.QueueUpdated event) {
+        publishState(event.gameId(), new GameEvent(
+                event.seq(),
+                "QUEUE_UPDATED",
+                Instant.now(),
+                new GameEvent.QueueUpdatedData(event.upcomingQueue())));
+    }
+
     private void publishState(UUID gameId, GameEvent event) {
         messaging.convertAndSend(topic(gameId, "state"), event);
     }

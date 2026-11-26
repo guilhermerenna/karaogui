@@ -25,6 +25,7 @@ import com.karaogui.backend.performance.PerformanceService;
 import com.karaogui.backend.performance.PerformanceRepository;
 import com.karaogui.backend.performance.PerformanceState;
 import com.karaogui.backend.performance.dto.CurrentPerformanceDto;
+import com.karaogui.backend.performance.dto.QueuedPerformanceDto;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
@@ -274,9 +275,8 @@ public class GameService {
         RankingPageDto ranking = buildRankingPage(players, 0);
         CurrentPerformanceDto currentPerformance = performanceService.findCurrentPerformance(game.getId())
                 .orElse(null);
-        boolean queueNonEmpty = !performanceRepo
-                .findByGameIdAndStateOrderByQueuePositionAsc(game.getId(), PerformanceState.QUEUED)
-                .isEmpty();
+        List<QueuedPerformanceDto> upcomingQueue = performanceService.findQueuedPerformances(game.getId());
+        boolean queueNonEmpty = !upcomingQueue.isEmpty();
         return new GameSnapshotDto(
                 game.getId(),
                 game.getJoinCode(),
@@ -285,7 +285,8 @@ public class GameService {
                 playerDtos,
                 currentPerformance,
                 ranking,
-                queueNonEmpty);
+                queueNonEmpty,
+                upcomingQueue);
     }
 
     private RankingPageDto buildRankingPage(List<Player> all, int page) {

@@ -135,6 +135,19 @@ export interface RateRequest {
   overallScore: number;
 }
 
+export interface QueuedPerformanceDto {
+  performanceId: number;
+  queuePosition: number;
+  songTitle: string | null;
+  artist: string | null;
+  videoName: string | null;
+  performerNames: string[];
+}
+
+export interface QueueUpdatedData {
+  upcomingQueue: QueuedPerformanceDto[];
+}
+
 export interface GameSnapshotDto {
   gameId: string;
   joinCode: string;
@@ -144,6 +157,7 @@ export interface GameSnapshotDto {
   currentPerformance: CurrentPerformanceDto | null;
   ranking: RankingPageDto;
   queueNonEmpty: boolean;
+  upcomingQueue?: QueuedPerformanceDto[];
 }
 
 export interface GameEventEnvelope<T = unknown> {

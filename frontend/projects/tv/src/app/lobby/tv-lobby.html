@@ -55,88 +55,94 @@
         </div>
       }
 
-      <!-- CENTER PANEL: performance state -->
+      <!-- CENTER PANEL: performance state + upcoming footer -->
       <div class="tv-center">
-        @if (rt.currentPerformance$()) {
-          @let perf = rt.currentPerformance$()!;
+        <div class="tv-stage">
+          @if (rt.currentPerformance$()) {
+            @let perf = rt.currentPerformance$()!;
 
-          @if (perf.state === 'CONFIRMING') {
-            <div class="tv-perf-banner confirming">
-              <div class="tv-perf-title">Confirming performers…</div>
-              <div class="tv-countdown">{{ secondsLeft() }}s</div>
-              <div class="tv-perf-hint">
-                Perform to confirm on your phone
+            @if (perf.state === 'CONFIRMING') {
+              <div class="tv-perf-banner confirming">
+                <div class="tv-perf-title">Confirming performers…</div>
+                <div class="tv-countdown">{{ secondsLeft() }}s</div>
+                <div class="tv-perf-hint">
+                  Perform to confirm on your phone
+                </div>
               </div>
-            </div>
-          }
+            }
 
-          @if (perf.state === 'RUNNING') {
-            <div class="tv-perf-banner running">
-              @if (perf.videoId && localVideoFailedForPerfId() !== perf.performanceId) {
-                <ui-local-video-player
-                  class="tv-video-player"
-                  [videoId]="perf.videoId"
-                  (playbackError)="localVideoFailedForPerfId.set(perf.performanceId)" />
-              } @else if (perf.youtubeUrl) {
-                <ui-youtube-video-player
-                  class="tv-video-player"
-                  [youtubeUrl]="perf.youtubeUrl" />
-              } @else {
-                <div class="tv-video-unavailable">
-                  Video unavailable
-                </div>
-              }
-              <div class="tv-judges-prompt">
-                Judges — rate on your phone!
-              </div>
-              @if (perf.durationSeconds) {
-                <div class="tv-progress-track">
-                  <div class="tv-progress-fill" [style.width.%]="judgingPct()">
-                    <span class="tv-progress-label">{{ judgingSecondsLeft() }}s</span>
+            @if (perf.state === 'RUNNING') {
+              <div class="tv-perf-banner running">
+                @if (perf.videoId && localVideoFailedForPerfId() !== perf.performanceId) {
+                  <ui-local-video-player
+                    class="tv-video-player"
+                    [videoId]="perf.videoId"
+                    (playbackError)="localVideoFailedForPerfId.set(perf.performanceId)" />
+                } @else if (perf.youtubeUrl) {
+                  <ui-youtube-video-player
+                    class="tv-video-player"
+                    [youtubeUrl]="perf.youtubeUrl" />
+                } @else {
+                  <div class="tv-video-unavailable">
+                    Video unavailable
                   </div>
+                }
+                <div class="tv-judges-prompt">
+                  Judges — rate on your phone!
                 </div>
-              }
-              @if (judgingGraceSecondsLeft() > 0) {
-                <div class="tv-judge-overlay">
-                  <div class="tv-perf-title">Waiting for judges</div>
-                  <div class="tv-countdown">{{ judgingGraceSecondsLeft() }}s</div>
-                  <div class="tv-perf-hint">
-                    Evaluate using your phone
+                @if (perf.durationSeconds) {
+                  <div class="tv-progress-track">
+                    <div class="tv-progress-fill" [style.width.%]="judgingPct()">
+                      <span class="tv-progress-label">{{ judgingSecondsLeft() }}s</span>
+                    </div>
                   </div>
-                </div>
-              }
-            </div>
-          }
-
-          @if (perf.state === 'LOCKED') {
-            <div class="tv-perf-banner locked">
-              <div class="tv-perf-title results-title">Results</div>
-              <div class="tv-scores-container">
-                @for (s of rt.lockedScores$(); track s.playerId) {
-                  <div class="tv-score-row">
-                    <span class="tv-score-name">{{ s.displayName }}</span>
-                    <span class="tv-score-pts">{{ s.points }} pts</span>
+                }
+                @if (judgingGraceSecondsLeft() > 0) {
+                  <div class="tv-judge-overlay">
+                    <div class="tv-perf-title">Waiting for judges</div>
+                    <div class="tv-countdown">{{ judgingGraceSecondsLeft() }}s</div>
+                    <div class="tv-perf-hint">
+                      Evaluate using your phone
+                    </div>
                   </div>
                 }
               </div>
-            </div>
-          }
+            }
 
-          @if (perf.state === 'SKIPPED') {
-            <div class="tv-perf-banner skipped">
-              <div class="tv-perf-title skipped-title">Performance skipped</div>
+            @if (perf.state === 'LOCKED') {
+              <div class="tv-perf-banner locked">
+                <div class="tv-perf-title results-title">Results</div>
+                <div class="tv-scores-container">
+                  @for (s of rt.lockedScores$(); track s.playerId) {
+                    <div class="tv-score-row">
+                      <span class="tv-score-name">{{ s.displayName }}</span>
+                      <span class="tv-score-pts">{{ s.points }} pts</span>
+                    </div>
+                  }
+                </div>
+              </div>
+            }
+
+            @if (perf.state === 'SKIPPED') {
+              <div class="tv-perf-banner skipped">
+                <div class="tv-perf-title skipped-title">Performance skipped</div>
+              </div>
+            }
+          } @else if (rt.gameState$() === 'ACTIVE') {
+            <div class="tv-center-idle">
+              <div class="tv-title">KaraoGUI</div>
+              <div class="tv-subtitle">Waiting for next performance…</div>
+            </div>
+          } @else {
+            <div class="tv-center-idle">
+              <div class="tv-title">KaraoGUI</div>
+              <div class="tv-subtitle">Scan the join code to play</div>
             </div>
           }
-        } @else if (rt.gameState$() === 'ACTIVE') {
-          <div class="tv-center-idle">
-            <div class="tv-title">KaraoGUI</div>
-            <div class="tv-subtitle">Waiting for next performance…</div>
-          </div>
-        } @else {
-          <div class="tv-center-idle">
-            <div class="tv-title">KaraoGUI</div>
-            <div class="tv-subtitle">Scan the join code to play</div>
-          </div>
+        </div>
+
+        @if (rt.upcomingQueue$().length) {
+          <app-upcoming-carousel [items]="rt.upcomingQueue$()" />
         }
       </div>
 

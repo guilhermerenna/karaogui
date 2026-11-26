@@ -53,6 +53,7 @@ class MockRealtimeService extends RealtimeService {
       useValue: {
         getSnapshotByCode: () => of(INITIAL_SNAPSHOT),
         getSnapshot: () => of(INITIAL_SNAPSHOT),
+        getVideoStreamUrl: (videoId: string) => `/api/videos/${videoId}/stream`,
       },
     },
   ],

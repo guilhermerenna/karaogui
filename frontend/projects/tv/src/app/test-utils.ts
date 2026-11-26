@@ -1,4 +1,4 @@
-import type { CommentDto, CurrentPerformanceDto, GameSnapshotDto, PlayerDto, RankingEntry, ScoreResultDto } from 'contracts';
+import type { CommentDto, CurrentPerformanceDto, GameSnapshotDto, PlayerDto, QueuedPerformanceDto, RankingEntry, ScoreResultDto } from 'contracts';
 
 export type PlaygroundScenario = 'running' | 'confirming' | 'locked' | 'lobby' | 'over';
 
@@ -81,12 +81,33 @@ export const generateMockLockedScores = (players: PlayerDto[]): ScoreResultDto[]
   }));
 };
 
+export const generateMockUpcomingQueue = (players: PlayerDto[]): QueuedPerformanceDto[] => {
+  const songs = [
+    { songTitle: 'Bohemian Rhapsody', artist: 'Queen' },
+    { songTitle: 'Creep', artist: 'Radiohead' },
+    { songTitle: 'Mr. Brightside', artist: 'The Killers' },
+    { songTitle: 'Don\'t Stop Believin\'', artist: 'Journey' },
+  ];
+  return songs.map((s, i) => ({
+    performanceId: 10 + i,
+    queuePosition: i + 1,
+    songTitle: s.songTitle,
+    artist: s.artist,
+    videoName: `${s.artist} - ${s.songTitle}`,
+    performerNames: players.length >= 2
+      ? [players[i % players.length].displayName, players[(i + 1) % players.length].displayName]
+      : ['Player 1'],
+  }));
+};
+
 export const buildMockSnapshot = (
   scenario: PlaygroundScenario,
   players: PlayerDto[],
 ): GameSnapshotDto => {
   const isLobby = scenario === 'lobby';
   const rankingEntries = isLobby ? [] : generateMockRanking(players);
+  const showQueue = scenario === 'running' || scenario === 'confirming' || scenario === 'locked';
+  const upcomingQueue = showQueue ? generateMockUpcomingQueue(players) : [];
 
   let state: GameSnapshotDto['state'] = 'ACTIVE';
   let currentPerformance: CurrentPerformanceDto | null = null;
@@ -116,6 +137,7 @@ export const buildMockSnapshot = (
       totalPlayers: players.length,
       entries: rankingEntries,
     },
-    queueNonEmpty: scenario === 'confirming' || scenario === 'running',
+    queueNonEmpty: upcomingQueue.length > 0,
+    upcomingQueue,
   };
 };

@@ -1,0 +1,160 @@
+:host {
+  display: block;
+  width: 100%;
+  flex-shrink: 0;
+}
+
+.upcoming-footer {
+  background: rgba(30, 41, 59, 0.85);
+  border: 1px solid #334155;
+  border-radius: 12px;
+  padding: 0.65rem 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.upcoming-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.upcoming-title {
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: #a5b4fc;
+}
+
+.upcoming-count {
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: #e2e8f0;
+  background: #334155;
+  border-radius: 999px;
+  padding: 0.05rem 0.45rem;
+}
+
+.upcoming-dots {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.upcoming-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #475569;
+  transition: background-color 0.25s ease;
+
+  &.active {
+    background: #a5b4fc;
+  }
+}
+
+.upcoming-cards {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+
+.upcoming-card {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  padding: 0.5rem 0.75rem;
+  border-radius: 8px;
+  background: #0f172a;
+  border: 1px solid #1e293b;
+  min-width: 0;
+  animation: upcoming-slide-in 0.35s ease;
+
+  &.is-next {
+    border-color: #6366f1;
+  }
+}
+
+.upcoming-badge {
+  flex-shrink: 0;
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  padding: 0.2rem 0.5rem;
+  border-radius: 6px;
+  background: #1e293b;
+  color: #94a3b8;
+
+  .is-next & {
+    background: #6366f1;
+    color: #fff;
+  }
+}
+
+.upcoming-info {
+  min-width: 0;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.upcoming-song-row {
+  display: flex;
+  align-items: baseline;
+  gap: 0.35rem;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.upcoming-song {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #f1f5f9;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.upcoming-artist {
+  font-size: 0.85rem;
+  color: #94a3b8;
+  flex-shrink: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.upcoming-singers {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.8rem;
+  color: #cbd5e1;
+  min-width: 0;
+}
+
+.upcoming-mic {
+  flex-shrink: 0;
+  font-size: 0.75rem;
+}
+
+.upcoming-singer-names {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@keyframes upcoming-slide-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}

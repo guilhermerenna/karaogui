@@ -1,6 +1,7 @@
 package com.karaogui.backend.game;
 
 import com.karaogui.backend.game.dto.RankingPageDto;
+import com.karaogui.backend.performance.dto.QueuedPerformanceDto;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
@@ -36,4 +37,6 @@ public record GameEvent(long seq, String type, Instant at, Object data) {
         String authorName, String body, java.time.Instant createdAt) {}
 
     public record CommentLikedData(java.util.UUID commentId, int likeCount) {}
+
+    public record QueueUpdatedData(List<QueuedPerformanceDto> upcomingQueue) {}
 }

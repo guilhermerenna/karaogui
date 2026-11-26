@@ -5,11 +5,12 @@ import { Client, IMessage } from '@stomp/stompjs';
 import { GameApiService } from 'api';
 import { RealtimeService, resolveWsUrl } from 'realtime';
 import { LocalVideoPlayerComponent, YoutubeVideoPlayerComponent, formatAppVersion } from 'ui';
+import { UpcomingCarouselComponent } from './upcoming-carousel';
 
 @Component({
   selector: 'app-tv-lobby',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [LocalVideoPlayerComponent, YoutubeVideoPlayerComponent],
+  imports: [LocalVideoPlayerComponent, YoutubeVideoPlayerComponent, UpcomingCarouselComponent],
   templateUrl: './tv-lobby.html',
   styleUrl: './tv-lobby.scss',
 })

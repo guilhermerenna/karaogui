@@ -157,9 +157,19 @@
 /* Center panel */
 .tv-center {
   display: flex;
+  flex-direction: column;
+  gap: .75rem;
+  min-height: 0;
+  min-width: 0;
+}
+
+.tv-stage {
+  flex: 1 1 0;
+  width: 100%;
+  min-height: 0;
+  display: flex;
   align-items: center;
   justify-content: center;
-  min-height: 0;
 }
 
 .tv-center-idle {
@@ -181,6 +191,7 @@
 
   &.running {
     background: #052e16;
+    padding: 1rem 1.5rem;
   }
 
   &.locked {
@@ -215,7 +226,7 @@
 .tv-video-player {
   display: block;
   width: 100%;
-  margin-top: 1.25rem;
+  margin-top: 0;
 }
 
 .tv-video-unavailable {
@@ -491,7 +502,7 @@
 
 .tv-progress-track {
   width: 100%;
-  margin-top: 1.5rem;
+  margin-top: .75rem;
   height: 2.5rem;
   border-radius: 999px;
   background: #0f172a;

@@ -18,6 +18,7 @@ import com.karaogui.backend.performance.dto.EvaluateRequest;
 import com.karaogui.backend.performance.dto.JudgeAssignmentDto;
 import com.karaogui.backend.performance.dto.PerformanceDetailDto;
 import com.karaogui.backend.performance.dto.QueuePerformanceRequest;
+import com.karaogui.backend.performance.dto.QueuedPerformanceDto;
 import com.karaogui.backend.performance.dto.RateRequest;
 import com.karaogui.backend.performance.dto.ScoreResultDto;
 import com.karaogui.backend.performance.dto.SlotDto;
@@ -33,8 +34,11 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.orm.ObjectOptimisticLockingFailureException;
@@ -181,6 +185,8 @@ public class PerformanceService {
                 .isPresent();
         if (!hasActive) {
             announceNext(game, performance);
+        } else {
+            publishQueueUpdated(game);
         }
 
         return buildDetail(performance, identity.playerId());
@@ -375,6 +381,47 @@ public class PerformanceService {
                 .map(p -> toCurrentDto(p, slotRepo.findByPerformanceIdOrderBySlotIndex(p.getId())));
     }
 
+    @Transactional(readOnly = true)
+    public List<QueuedPerformanceDto> findQueuedPerformances(UUID gameId) {
+        List<Performance> queued = performanceRepo.findByGameIdAndStateOrderByQueuePositionAsc(
+                gameId, PerformanceState.QUEUED);
+        if (queued.isEmpty()) {
+            return List.of();
+        }
+        Set<UUID> videoIds = queued.stream()
+                .map(Performance::getVideoId)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toSet());
+        Map<UUID, Video> videosById = videoIds.isEmpty()
+                ? Map.of()
+                : videoRepo.findAllById(videoIds).stream()
+                        .collect(Collectors.toMap(Video::getId, Function.identity()));
+        Map<UUID, String> playerNames = buildPlayerNameMap(gameId);
+
+        return queued.stream()
+                .map(p -> {
+                    Video video = p.getVideoId() != null ? videosById.get(p.getVideoId()) : null;
+                    List<String> performerNames = slotRepo.findByPerformanceIdOrderBySlotIndex(p.getId()).stream()
+                            .map(s -> playerNames.getOrDefault(s.getCurrentPlayerId(), "?"))
+                            .toList();
+                    return new QueuedPerformanceDto(
+                            p.getId(),
+                            p.getQueuePosition(),
+                            video != null ? video.getSongTitle() : null,
+                            video != null ? video.getArtist() : null,
+                            video != null ? video.getVideoName() : null,
+                            performerNames);
+                })
+                .toList();
+    }
+
+    private void publishQueueUpdated(Game game) {
+        long seq = game.incrementAndGetSeq();
+        gameRepo.save(game);
+        eventPublisher.publishEvent(new GameDomainEvent.QueueUpdated(
+                this, game.getId(), seq, findQueuedPerformances(game.getId())));
+    }
+
     private void announceNext(Game game, Performance perf) {
         Instant now = clock.instant();
         perf.setState(PerformanceState.CONFIRMING);
@@ -406,6 +453,8 @@ public class PerformanceService {
                 this, game.getId(), seq, perf.getId(), perf.getType().name(),
                 slotInfos, judgeNames, judgePlayerIds, resolveStreamableVideoId(perf),
                 perf.getYoutubeUrl(), perf.getConfirmDeadlineAt()));
+
+        publishQueueUpdated(game);
     }
 
     private void announceNextQueued(Game game) {

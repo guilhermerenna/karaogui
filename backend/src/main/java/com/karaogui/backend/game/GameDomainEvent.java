@@ -1,5 +1,6 @@
 package com.karaogui.backend.game;
 
+import com.karaogui.backend.performance.dto.QueuedPerformanceDto;
 import java.util.List;
 import java.util.UUID;
 import org.springframework.context.ApplicationEvent;
@@ -10,7 +11,8 @@ public abstract sealed class GameDomainEvent extends ApplicationEvent
                 GameDomainEvent.PerformanceAnnounced, GameDomainEvent.SlotStateChanged,
                 GameDomainEvent.PerformanceStarted, GameDomainEvent.PerformanceLocked,
                 GameDomainEvent.PerformanceSkipped, GameDomainEvent.RankingUpdated,
-                GameDomainEvent.CommentPosted, GameDomainEvent.CommentLiked {
+                GameDomainEvent.CommentPosted, GameDomainEvent.CommentLiked,
+                GameDomainEvent.QueueUpdated {
 
     protected GameDomainEvent(Object source) {
         super(source);
@@ -279,5 +281,23 @@ public abstract sealed class GameDomainEvent extends ApplicationEvent
         public long seq() { return seq; }
         public UUID commentId() { return commentId; }
         public int likeCount() { return likeCount; }
+    }
+
+    public static final class QueueUpdated extends GameDomainEvent {
+        private final UUID gameId;
+        private final long seq;
+        private final List<QueuedPerformanceDto> upcomingQueue;
+
+        public QueueUpdated(Object source, UUID gameId, long seq,
+                List<QueuedPerformanceDto> upcomingQueue) {
+            super(source);
+            this.gameId = gameId;
+            this.seq = seq;
+            this.upcomingQueue = upcomingQueue;
+        }
+
+        public UUID gameId() { return gameId; }
+        public long seq() { return seq; }
+        public List<QueuedPerformanceDto> upcomingQueue() { return upcomingQueue; }
     }
 }
