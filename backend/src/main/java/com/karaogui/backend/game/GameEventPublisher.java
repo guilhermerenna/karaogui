@@ -66,7 +66,7 @@ public class GameEventPublisher {
                         event.performanceId(), event.type(), event.slots(),
                         event.judgeNames(), event.judgePlayerIds(), event.videoId(),
                         event.youtubeUrl(), event.songTitle(), event.artist(), event.videoName(),
-                        event.confirmDeadlineAt())));
+                        event.confirmDeadlineAt(), event.replacementOpensAt())));
     }
 
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)

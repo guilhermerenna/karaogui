@@ -433,8 +433,12 @@ public class PerformanceService {
         Instant now = clock.instant();
         perf.setState(PerformanceState.CONFIRMING);
         perf.setAnnouncedAt(now);
-        perf.setConfirmDeadlineAt(now.plus(props.timers().readyConfirmWindow()));
-        perf.setReplacementOpensAt(now.plus(props.timers().replacementOpenAfter()));
+        // Two-phase CONFIRMING: assigned performers confirm during [announce, replacementOpensAt);
+        // if a slot is still open after that, others may volunteer during [replacementOpensAt,
+        // confirmDeadlineAt). confirmDeadlineAt is the final skip deadline (the timer job skips on it).
+        perf.setReplacementOpensAt(now.plus(props.timers().readyConfirmWindow()));
+        perf.setConfirmDeadlineAt(
+                now.plus(props.timers().readyConfirmWindow()).plus(props.timers().volunteerWindow()));
         performanceRepo.save(perf);
 
         List<PerformerSlot> slots = slotRepo.findByPerformanceIdOrderBySlotIndex(perf.getId());
@@ -465,7 +469,7 @@ public class PerformanceService {
                 video != null ? video.getSongTitle() : null,
                 video != null ? video.getArtist() : null,
                 video != null ? video.getVideoName() : null,
-                perf.getConfirmDeadlineAt()));
+                perf.getConfirmDeadlineAt(), perf.getReplacementOpensAt()));
 
         publishQueueUpdated(game);
     }

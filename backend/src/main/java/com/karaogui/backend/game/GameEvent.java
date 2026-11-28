@@ -21,7 +21,7 @@ public record GameEvent(long seq, String type, Instant at, Object data) {
     public record PerformanceAnnouncedData(Long performanceId, String type, List<SlotInfo> slots,
             List<String> judgeNames, List<UUID> judgePlayerIds, UUID videoId, String youtubeUrl,
             String songTitle, String artist, String videoName,
-            Instant confirmDeadlineAt) {}
+            Instant confirmDeadlineAt, Instant replacementOpensAt) {}
 
     public record SlotStateChangedData(Long performanceId, UUID slotId, String slotState,
             String currentPlayerName) {}

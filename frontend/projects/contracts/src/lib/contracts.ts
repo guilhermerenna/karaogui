@@ -76,6 +76,7 @@ export interface PerformanceAnnouncedData {
   artist: string | null;
   videoName: string | null;
   confirmDeadlineAt: string;
+  replacementOpensAt: string | null;
 }
 
 export interface SlotStateChangedData {

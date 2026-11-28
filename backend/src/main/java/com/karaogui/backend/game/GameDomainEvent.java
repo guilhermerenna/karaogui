@@ -72,12 +72,13 @@ public abstract sealed class GameDomainEvent extends ApplicationEvent
         private final String artist;
         private final String videoName;
         private final java.time.Instant confirmDeadlineAt;
+        private final java.time.Instant replacementOpensAt;
 
         public PerformanceAnnounced(Object source, UUID gameId, long seq, Long performanceId,
                 String type, List<GameEvent.SlotInfo> slots, List<String> judgeNames,
                 List<UUID> judgePlayerIds, UUID videoId, String youtubeUrl,
                 String songTitle, String artist, String videoName,
-                java.time.Instant confirmDeadlineAt) {
+                java.time.Instant confirmDeadlineAt, java.time.Instant replacementOpensAt) {
             super(source);
             this.gameId = gameId;
             this.seq = seq;
@@ -92,6 +93,7 @@ public abstract sealed class GameDomainEvent extends ApplicationEvent
             this.artist = artist;
             this.videoName = videoName;
             this.confirmDeadlineAt = confirmDeadlineAt;
+            this.replacementOpensAt = replacementOpensAt;
         }
 
         public UUID gameId() { return gameId; }
@@ -107,6 +109,7 @@ public abstract sealed class GameDomainEvent extends ApplicationEvent
         public String artist() { return artist; }
         public String videoName() { return videoName; }
         public java.time.Instant confirmDeadlineAt() { return confirmDeadlineAt; }
+        public java.time.Instant replacementOpensAt() { return replacementOpensAt; }
     }
 
     public static final class SlotStateChanged extends GameDomainEvent {

@@ -174,7 +174,7 @@ export class RealtimeService {
             artist: d.artist ?? null,
             videoName: d.videoName ?? null,
             confirmDeadlineAt: d.confirmDeadlineAt,
-            replacementOpensAt: null,
+            replacementOpensAt: d.replacementOpensAt ?? null,
             slots: d.slots,
             judgePlayerIds: d.judgePlayerIds,
             judges: d.judgePlayerIds.map((id, i) => ({

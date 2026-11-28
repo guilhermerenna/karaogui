@@ -224,7 +224,7 @@ export const buildMockPhoneSnapshot = (
       songTitle: 'Bohemian Rhapsody',
       artist: 'Queen',
       videoName: null,
-      confirmDeadlineAt: new Date(now + 25_000).toISOString(),
+      confirmDeadlineAt: new Date(now + 30_000).toISOString(),
       // Volunteer scenario has replacement window already open
       replacementOpensAt: new Date(now + (scenario === 'volunteer' ? -5_000 : 15_000)).toISOString(),
       slots: performers.map((p, idx) => ({

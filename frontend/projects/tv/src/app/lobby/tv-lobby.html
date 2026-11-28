@@ -62,7 +62,7 @@
             @let perf = rt.currentPerformance$()!;
 
             @if (perf.state === 'CONFIRMING') {
-              <div class="tv-perf-banner confirming">
+              <div class="tv-perf-banner confirming" [class.volunteer-phase]="volunteerPhase()">
                 <div class="tv-perf-title tv-song-title">
                   <span class="tv-song-icon" aria-hidden="true">🎵</span>
                   <span class="tv-song-name">{{ perf.songTitle || perf.videoName || 'Karaoke' }}</span>
@@ -70,7 +70,7 @@
                     <span class="tv-song-artist">— {{ perf.artist }}</span>
                   }
                 </div>
-                <div class="tv-countdown">{{ secondsLeft() }}s</div>
+                <div class="tv-countdown">{{ volunteerPhase() ? volunteerSecondsLeft() : secondsLeft() }}s</div>
                 <div class="tv-confirm-performers">
                   @for (slot of perf.slots; track slot.slotId) {
                     <div class="tv-confirm-chip"
@@ -86,9 +86,15 @@
                     </div>
                   }
                 </div>
-                <div class="tv-perf-hint">
-                  Confirm on your phone to start
-                </div>
+                @if (volunteerPhase()) {
+                  <div class="tv-perf-hint tv-volunteer-hint">
+                    Open slot! Grab your phone and volunteer to sing
+                  </div>
+                } @else {
+                  <div class="tv-perf-hint">
+                    Confirm on your phone to start
+                  </div>
+                }
               </div>
             }
 

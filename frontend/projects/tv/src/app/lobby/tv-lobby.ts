@@ -29,6 +29,8 @@ export class TvLobbyComponent implements OnInit, OnDestroy {
   loaded = signal(false);
   error = signal('');
   secondsLeft = signal(0);
+  volunteerSecondsLeft = signal(0);
+  volunteerPhase = signal(false);
   judgingSecondsLeft = signal(0);
   judgingPct = signal(100);
   judgingGraceSecondsLeft = signal(0);
@@ -89,12 +91,27 @@ export class TvLobbyComponent implements OnInit, OnDestroy {
 
     this.timerHandle = setInterval(() => {
       const perf = this.rt.currentPerformance$();
-      if (perf?.confirmDeadlineAt) {
-        const ms = new Date(perf.confirmDeadlineAt).getTime() - Date.now();
+      // Confirm phase counts down to when the slot opens to volunteers (replacementOpensAt);
+      // the volunteer phase counts down to the final skip deadline (confirmDeadlineAt).
+      const confirmTarget = perf?.replacementOpensAt ?? perf?.confirmDeadlineAt ?? null;
+      if (confirmTarget) {
+        const ms = new Date(confirmTarget).getTime() - Date.now();
         this.secondsLeft.set(Math.max(0, Math.ceil(ms / 1000)));
       } else {
         this.secondsLeft.set(0);
       }
+
+      if (perf?.confirmDeadlineAt) {
+        const ms = new Date(perf.confirmDeadlineAt).getTime() - Date.now();
+        this.volunteerSecondsLeft.set(Math.max(0, Math.ceil(ms / 1000)));
+      } else {
+        this.volunteerSecondsLeft.set(0);
+      }
+
+      const volunteerOpen = !!perf && perf.state === 'CONFIRMING' && !!perf.replacementOpensAt
+        && Date.now() >= new Date(perf.replacementOpensAt).getTime()
+        && perf.slots.some(s => s.state === 'PENDING');
+      this.volunteerPhase.set(volunteerOpen);
 
       if (perf?.state === 'RUNNING' && perf.startedAt && perf.judgingDeadlineAt && perf.durationSeconds) {
         const now = Date.now();

@@ -61,7 +61,7 @@ export const generateMockPerformance = (
     artist: 'Queen',
     videoName: null,
     confirmDeadlineAt: state === 'CONFIRMING' ? new Date(now + 30_000).toISOString() : null,
-    replacementOpensAt: state === 'CONFIRMING' ? new Date(now + 20_000).toISOString() : null,
+    replacementOpensAt: state === 'CONFIRMING' ? new Date(now + 15_000).toISOString() : null,
     slots: performers.map((p, idx) => ({
       slotId: `slot-${idx + 1}`,
       slotIndex: idx,
