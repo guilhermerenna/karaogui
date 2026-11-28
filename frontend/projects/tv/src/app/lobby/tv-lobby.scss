@@ -215,6 +215,29 @@
   &.skipped-title {
     color: #94a3b8;
   }
+
+  &.tv-song-title {
+    display: flex;
+    align-items: baseline;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: .5rem;
+  }
+}
+
+.tv-song-icon {
+  font-size: 1.6rem;
+  line-height: 1;
+  align-self: center;
+}
+
+.tv-song-name {
+  color: #f8fafc;
+}
+
+.tv-song-artist {
+  font-weight: 600;
+  color: #94a3b8;
 }
 
 .tv-perf-hint {
@@ -390,6 +413,42 @@
 .tv-slot-badge {
   font-size: .75rem;
   color: #94a3b8;
+}
+
+.performers-judges {
+  display: flex;
+  gap: 1rem;
+  margin-bottom: 1rem;
+  flex-shrink: 0;
+}
+
+.pj-col {
+  flex: 1 1 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+
+  .performers-list,
+  .judges-list {
+    margin-bottom: 0;
+  }
+}
+
+.judges-list {
+  display: flex;
+  flex-direction: column;
+  gap: .5rem;
+  flex-shrink: 0;
+}
+
+.judge-card {
+  &.pending {
+    background: #1e293b;
+  }
+
+  &.confirmed {
+    background: #14532d;
+  }
 }
 
 .tv-state-badge {
@@ -601,6 +660,57 @@
   align-items: center;
   box-shadow: 0 8px 32px rgba(0, 0, 0, .6);
   min-width: 320px;
+}
+
+.tv-judge-status-list {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: .6rem;
+  margin: .75rem 0 .25rem;
+  width: 100%;
+}
+
+.tv-judge-status-chip {
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+  padding: .5rem .9rem;
+  border-radius: 10px;
+  background: #0f172a;
+  border: 2px solid #334155;
+  transition: background-color .25s ease, border-color .25s ease;
+
+  &.judging {
+    background: rgba(30, 41, 59, .85);
+    border-color: #6366f1;
+  }
+
+  &.judged {
+    background: rgba(20, 83, 45, .85);
+    border-color: #22c55e;
+  }
+}
+
+.tv-judge-status-icon {
+  font-size: 1.1rem;
+  line-height: 1;
+}
+
+.tv-judge-status-name {
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: #f8fafc;
+}
+
+.tv-judge-status-label {
+  font-size: .72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .06em;
+
+  .judging & { color: #c7d2fe; }
+  .judged & { color: #86efac; }
 }
 
 .tv-app-version {
