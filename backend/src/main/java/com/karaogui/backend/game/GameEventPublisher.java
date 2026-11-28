@@ -65,7 +65,8 @@ public class GameEventPublisher {
                 new GameEvent.PerformanceAnnouncedData(
                         event.performanceId(), event.type(), event.slots(),
                         event.judgeNames(), event.judgePlayerIds(), event.videoId(),
-                        event.youtubeUrl(), event.confirmDeadlineAt())));
+                        event.youtubeUrl(), event.songTitle(), event.artist(), event.videoName(),
+                        event.confirmDeadlineAt(), event.replacementOpensAt())));
     }
 
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
@@ -77,6 +78,16 @@ public class GameEventPublisher {
                 new GameEvent.SlotStateChangedData(
                         event.performanceId(), event.slotId(),
                         event.slotState(), event.currentPlayerName())));
+    }
+
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+    public void onJudgeSubmitted(GameDomainEvent.JudgeSubmitted event) {
+        publishPerformers(event.gameId(), new GameEvent(
+                event.seq(),
+                "JUDGE_SUBMITTED",
+                Instant.now(),
+                new GameEvent.JudgeSubmittedData(
+                        event.performanceId(), event.judgePlayerId(), event.displayName())));
     }
 
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)

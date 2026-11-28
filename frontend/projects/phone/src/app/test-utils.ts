@@ -199,7 +199,13 @@ export const buildMockPhoneSnapshot = (
   const rankingEntries = isLobby ? [] : generateMockRanking(players);
 
   const performers = players.slice(0, 2);
-  const judges = players.slice(2, 4).map((p) => p.playerId);
+  const judgePlayers = players.slice(2, 4);
+  const judges = judgePlayers.map((p) => p.playerId);
+  const judgeDtos = judgePlayers.map((p) => ({
+    judgePlayerId: p.playerId,
+    displayName: p.displayName,
+    submitted: false,
+  }));
 
   let state: GameSnapshotDto['state'] = 'ACTIVE';
   let currentPerformance: CurrentPerformanceDto | null = null;
@@ -215,7 +221,10 @@ export const buildMockPhoneSnapshot = (
       state: 'CONFIRMING',
       videoId: 'vid-1',
       youtubeUrl: null,
-      confirmDeadlineAt: new Date(now + 25_000).toISOString(),
+      songTitle: 'Bohemian Rhapsody',
+      artist: 'Queen',
+      videoName: null,
+      confirmDeadlineAt: new Date(now + 30_000).toISOString(),
       // Volunteer scenario has replacement window already open
       replacementOpensAt: new Date(now + (scenario === 'volunteer' ? -5_000 : 15_000)).toISOString(),
       slots: performers.map((p, idx) => ({
@@ -226,6 +235,7 @@ export const buildMockPhoneSnapshot = (
         state: idx === 0 ? 'PENDING' : 'CONFIRMED',
       })),
       judgePlayerIds: judges,
+      judges: judgeDtos,
       durationSeconds: 254,
       startedAt: null,
       judgingDeadlineAt: null,
@@ -237,6 +247,9 @@ export const buildMockPhoneSnapshot = (
       state: 'RUNNING',
       videoId: 'vid-1',
       youtubeUrl: null,
+      songTitle: 'Bohemian Rhapsody',
+      artist: 'Queen',
+      videoName: null,
       confirmDeadlineAt: null,
       replacementOpensAt: null,
       slots: performers.map((p, idx) => ({
@@ -247,6 +260,7 @@ export const buildMockPhoneSnapshot = (
         state: 'CONFIRMED',
       })),
       judgePlayerIds: judges,
+      judges: judgeDtos,
       durationSeconds: 254,
       startedAt: new Date(now - 30_000).toISOString(),
       judgingDeadlineAt: new Date(now + 254_000).toISOString(),
@@ -258,6 +272,9 @@ export const buildMockPhoneSnapshot = (
       state: 'LOCKED',
       videoId: 'vid-1',
       youtubeUrl: null,
+      songTitle: 'Bohemian Rhapsody',
+      artist: 'Queen',
+      videoName: null,
       confirmDeadlineAt: null,
       replacementOpensAt: null,
       slots: performers.map((p, idx) => ({
@@ -268,6 +285,7 @@ export const buildMockPhoneSnapshot = (
         state: 'CONFIRMED',
       })),
       judgePlayerIds: judges,
+      judges: judgeDtos,
       durationSeconds: 254,
       startedAt: new Date(now - 260_000).toISOString(),
       judgingDeadlineAt: new Date(now - 5_000).toISOString(),

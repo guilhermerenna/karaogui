@@ -304,6 +304,13 @@ public class PerformanceService {
         assignment.setSubmittedAt(clock.instant());
         judgeRepo.save(assignment);
 
+        Game game = requireGame(gameId);
+        long seq = game.incrementAndGetSeq();
+        gameRepo.save(game);
+        Player judge = requirePlayer(identity.playerId(), gameId);
+        eventPublisher.publishEvent(new GameDomainEvent.JudgeSubmitted(
+                this, gameId, seq, performanceId, identity.playerId(), judge.getDisplayName()));
+
         boolean allSubmitted = judgeRepo.findByPerformanceId(performanceId).stream()
                 .allMatch(a -> a.getSubmittedAt() != null);
         if (allSubmitted) {
@@ -426,8 +433,12 @@ public class PerformanceService {
         Instant now = clock.instant();
         perf.setState(PerformanceState.CONFIRMING);
         perf.setAnnouncedAt(now);
-        perf.setConfirmDeadlineAt(now.plus(props.timers().readyConfirmWindow()));
-        perf.setReplacementOpensAt(now.plus(props.timers().replacementOpenAfter()));
+        // Two-phase CONFIRMING: assigned performers confirm during [announce, replacementOpensAt);
+        // if a slot is still open after that, others may volunteer during [replacementOpensAt,
+        // confirmDeadlineAt). confirmDeadlineAt is the final skip deadline (the timer job skips on it).
+        perf.setReplacementOpensAt(now.plus(props.timers().readyConfirmWindow()));
+        perf.setConfirmDeadlineAt(
+                now.plus(props.timers().readyConfirmWindow()).plus(props.timers().volunteerWindow()));
         performanceRepo.save(perf);
 
         List<PerformerSlot> slots = slotRepo.findByPerformanceIdOrderBySlotIndex(perf.getId());
@@ -449,10 +460,16 @@ public class PerformanceService {
         long seq = game.incrementAndGetSeq();
         gameRepo.save(game);
 
+        Video video = perf.getVideoId() != null ? videoRepo.findById(perf.getVideoId()).orElse(null) : null;
+
         eventPublisher.publishEvent(new GameDomainEvent.PerformanceAnnounced(
                 this, game.getId(), seq, perf.getId(), perf.getType().name(),
                 slotInfos, judgeNames, judgePlayerIds, resolveStreamableVideoId(perf),
-                perf.getYoutubeUrl(), perf.getConfirmDeadlineAt()));
+                perf.getYoutubeUrl(),
+                video != null ? video.getSongTitle() : null,
+                video != null ? video.getArtist() : null,
+                video != null ? video.getVideoName() : null,
+                perf.getConfirmDeadlineAt(), perf.getReplacementOpensAt()));
 
         publishQueueUpdated(game);
     }
@@ -650,10 +667,20 @@ public class PerformanceService {
         List<UUID> judgePlayerIds = judgeRepo.findByPerformanceId(perf.getId()).stream()
                 .map(JudgeAssignment::getJudgePlayerId)
                 .toList();
+        List<JudgeAssignmentDto> judges = judgeRepo.findByPerformanceId(perf.getId()).stream()
+                .map(j -> new JudgeAssignmentDto(j.getJudgePlayerId(),
+                        playerNames.getOrDefault(j.getJudgePlayerId(), "?"),
+                        j.getSubmittedAt() != null))
+                .toList();
+        Video video = perf.getVideoId() != null ? videoRepo.findById(perf.getVideoId()).orElse(null) : null;
         return new CurrentPerformanceDto(
                 perf.getId(), perf.getType().name(), perf.getState().name(),
-                resolveStreamableVideoId(perf), perf.getYoutubeUrl(), perf.getConfirmDeadlineAt(),
-                perf.getReplacementOpensAt(), slotDtos, judgePlayerIds, perf.getDurationSeconds(),
+                resolveStreamableVideoId(perf), perf.getYoutubeUrl(),
+                video != null ? video.getSongTitle() : null,
+                video != null ? video.getArtist() : null,
+                video != null ? video.getVideoName() : null,
+                perf.getConfirmDeadlineAt(),
+                perf.getReplacementOpensAt(), slotDtos, judgePlayerIds, judges, perf.getDurationSeconds(),
                 perf.getJudgingDeadlineAt(), perf.getStartedAt());
     }
 

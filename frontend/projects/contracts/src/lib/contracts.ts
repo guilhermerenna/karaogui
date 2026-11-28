@@ -39,16 +39,26 @@ export interface PerformanceSlotDto {
   state: 'PENDING' | 'CONFIRMED' | 'REPLACED' | 'VACATED';
 }
 
+export interface JudgeAssignmentDto {
+  judgePlayerId: string;
+  displayName: string;
+  submitted: boolean;
+}
+
 export interface CurrentPerformanceDto {
   performanceId: number;
   type: string;
   state: 'QUEUED' | 'ANNOUNCED' | 'CONFIRMING' | 'RUNNING' | 'LOCKED' | 'SKIPPED';
   videoId: string | null;
   youtubeUrl: string | null;
+  songTitle: string | null;
+  artist: string | null;
+  videoName: string | null;
   confirmDeadlineAt: string | null;
   replacementOpensAt: string | null;
   slots: PerformanceSlotDto[];
   judgePlayerIds: string[];
+  judges: JudgeAssignmentDto[];
   durationSeconds: number | null;
   judgingDeadlineAt: string | null;
   startedAt: string | null;
@@ -62,7 +72,11 @@ export interface PerformanceAnnouncedData {
   judgePlayerIds: string[];
   videoId: string | null;
   youtubeUrl: string | null;
+  songTitle: string | null;
+  artist: string | null;
+  videoName: string | null;
   confirmDeadlineAt: string;
+  replacementOpensAt: string | null;
 }
 
 export interface SlotStateChangedData {
@@ -70,6 +84,12 @@ export interface SlotStateChangedData {
   slotId: string;
   slotState: string;
   currentPlayerName: string;
+}
+
+export interface JudgeSubmittedData {
+  performanceId: number;
+  judgePlayerId: string;
+  displayName: string;
 }
 
 export interface PerformanceStartedData {

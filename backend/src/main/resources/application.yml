@@ -40,8 +40,8 @@ karaogui:
     judging-grace: 30s
     fallback-ceiling: 8m
   timers:
-    ready-confirm-window: 30s
-    replacement-open-after: 20s
+    ready-confirm-window: 15s
+    volunteer-window: 15s
     break-duration: 15m
   scoreboard:
     max-displayed-player: 5

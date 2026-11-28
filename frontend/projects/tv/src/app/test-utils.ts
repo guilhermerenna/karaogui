@@ -47,7 +47,8 @@ export const generateMockPerformance = (
   const now = Date.now();
   const durationSeconds = 180;
   const performers = players.slice(0, 2);
-  const judges = players.slice(2, 4).map((p) => p.playerId);
+  const judgePlayers = players.slice(2, 4);
+  const judges = judgePlayers.map((p) => p.playerId);
 
   return {
     performanceId: 1,
@@ -56,8 +57,11 @@ export const generateMockPerformance = (
     // Set a local videoId or youtubeUrl here if you want to test playback in the playground.
     videoId: '05be8810-1be4-4155-9818-39114044e85b',
     youtubeUrl: null,
+    songTitle: 'Bohemian Rhapsody',
+    artist: 'Queen',
+    videoName: null,
     confirmDeadlineAt: state === 'CONFIRMING' ? new Date(now + 30_000).toISOString() : null,
-    replacementOpensAt: state === 'CONFIRMING' ? new Date(now + 20_000).toISOString() : null,
+    replacementOpensAt: state === 'CONFIRMING' ? new Date(now + 15_000).toISOString() : null,
     slots: performers.map((p, idx) => ({
       slotId: `slot-${idx + 1}`,
       slotIndex: idx,
@@ -66,6 +70,11 @@ export const generateMockPerformance = (
       state: state === 'CONFIRMING' && idx === 1 ? 'PENDING' : 'CONFIRMED',
     })),
     judgePlayerIds: judges,
+    judges: judgePlayers.map((p, idx) => ({
+      judgePlayerId: p.playerId,
+      displayName: p.displayName,
+      submitted: state === 'RUNNING' && idx === 0,
+    })),
     durationSeconds,
     startedAt: state === 'RUNNING' ? new Date(now - 30_000).toISOString() : null,
     judgingDeadlineAt:

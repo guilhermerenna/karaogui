@@ -62,9 +62,15 @@
             @let perf = rt.currentPerformance$()!;
 
             @if (perf.state === 'CONFIRMING') {
-              <div class="tv-perf-banner confirming">
-                <div class="tv-perf-title">Confirming performers…</div>
-                <div class="tv-countdown">{{ secondsLeft() }}s</div>
+              <div class="tv-perf-banner confirming" [class.volunteer-phase]="volunteerPhase()">
+                <div class="tv-perf-title tv-song-title">
+                  <span class="tv-song-icon" aria-hidden="true">🎵</span>
+                  <span class="tv-song-name">{{ perf.songTitle || perf.videoName || 'Karaoke' }}</span>
+                  @if (perf.artist) {
+                    <span class="tv-song-artist">— {{ perf.artist }}</span>
+                  }
+                </div>
+                <div class="tv-countdown">{{ volunteerPhase() ? volunteerSecondsLeft() : secondsLeft() }}s</div>
                 <div class="tv-confirm-performers">
                   @for (slot of perf.slots; track slot.slotId) {
                     <div class="tv-confirm-chip"
@@ -80,9 +86,15 @@
                     </div>
                   }
                 </div>
-                <div class="tv-perf-hint">
-                  Confirm on your phone to start
-                </div>
+                @if (volunteerPhase()) {
+                  <div class="tv-perf-hint tv-volunteer-hint">
+                    Open slot! Grab your phone and volunteer to sing
+                  </div>
+                } @else {
+                  <div class="tv-perf-hint">
+                    Confirm on your phone to start
+                  </div>
+                }
               </div>
             }
 
@@ -116,6 +128,21 @@
                   <div class="tv-judge-overlay">
                     <div class="tv-perf-title">Waiting for judges</div>
                     <div class="tv-countdown">{{ judgingGraceSecondsLeft() }}s</div>
+                    <div class="tv-judge-status-list">
+                      @for (judge of perf.judges; track judge.judgePlayerId) {
+                        <div class="tv-judge-status-chip"
+                          [class.judged]="judge.submitted"
+                          [class.judging]="!judge.submitted">
+                          <span class="tv-judge-status-icon" aria-hidden="true">
+                            {{ judge.submitted ? '✓' : '🎧' }}
+                          </span>
+                          <span class="tv-judge-status-name">{{ judge.displayName }}</span>
+                          <span class="tv-judge-status-label">
+                            {{ judge.submitted ? 'Judged' : 'Judging' }}
+                          </span>
+                        </div>
+                      }
+                    </div>
                     <div class="tv-perf-hint">
                       Evaluate using your phone
                     </div>
@@ -164,19 +191,38 @@
       <!-- RIGHT PANEL: performers (top) → ranking + comments (middle) → join code (bottom) -->
       <div class="tv-right">
 
-        <!-- TOP: performers during a performance, otherwise players list -->
+        <!-- TOP: performers + judges during a performance, otherwise players list -->
         @if (rt.currentPerformance$()) {
           @let perf = rt.currentPerformance$()!;
-          <div class="tv-label">Performers</div>
-          <div class="performers-list">
-            @for (slot of perf.slots; track slot.slotId) {
-              <div class="tv-slot-card"
-                [class.confirmed]="slot.state === 'CONFIRMED' || slot.state === 'REPLACED'"
-                [class.pending]="slot.state === 'PENDING'">
-                <span class="tv-slot-name">{{ slot.currentPlayerName }}</span>
-                <span class="tv-slot-badge">{{ slot.state }}</span>
+          <div class="performers-judges">
+            <div class="pj-col">
+              <div class="tv-label">Performers</div>
+              <div class="performers-list">
+                @for (slot of perf.slots; track slot.slotId) {
+                  <div class="tv-slot-card"
+                    [class.confirmed]="slot.state === 'CONFIRMED' || slot.state === 'REPLACED'"
+                    [class.pending]="slot.state === 'PENDING'">
+                    <span class="tv-slot-name">{{ slot.currentPlayerName }}</span>
+                    <span class="tv-slot-badge">{{ slot.state }}</span>
+                  </div>
+                }
               </div>
-            }
+            </div>
+            <div class="pj-col">
+              <div class="tv-label">Judges</div>
+              <div class="judges-list">
+                @for (judge of perf.judges; track judge.judgePlayerId) {
+                  <div class="tv-slot-card judge-card"
+                    [class.confirmed]="judge.submitted"
+                    [class.pending]="!judge.submitted">
+                    <span class="tv-slot-name">{{ judge.displayName }}</span>
+                    <span class="tv-slot-badge">{{ judge.submitted ? 'Judged' : 'Judging' }}</span>
+                  </div>
+                } @empty {
+                  <div class="tv-no-scores">No judges</div>
+                }
+              </div>
+            </div>
           </div>
         } @else {
           <div class="tv-state-badge" [class.active]="rt.gameState$() === 'ACTIVE'">

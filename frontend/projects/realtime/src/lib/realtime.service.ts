@@ -10,6 +10,7 @@ import {
   GameEventEnvelope,
   GameSnapshotDto,
   PerformanceAnnouncedData,
+  JudgeSubmittedData,
   PerformanceLockedData,
   PerformanceSkippedData,
   PerformanceSlotDto,
@@ -169,10 +170,18 @@ export class RealtimeService {
             state: 'CONFIRMING',
             videoId: d.videoId ?? null,
             youtubeUrl: d.youtubeUrl,
+            songTitle: d.songTitle ?? null,
+            artist: d.artist ?? null,
+            videoName: d.videoName ?? null,
             confirmDeadlineAt: d.confirmDeadlineAt,
-            replacementOpensAt: null,
+            replacementOpensAt: d.replacementOpensAt ?? null,
             slots: d.slots,
             judgePlayerIds: d.judgePlayerIds,
+            judges: d.judgePlayerIds.map((id, i) => ({
+              judgePlayerId: id,
+              displayName: d.judgeNames[i] ?? '?',
+              submitted: false,
+            })),
             durationSeconds: null,
             judgingDeadlineAt: null,
             startedAt: null,
@@ -191,6 +200,19 @@ export class RealtimeService {
                 s.slotId === d.slotId
                   ? { ...s, state: d.slotState as PerformanceSlotDto['state'], currentPlayerName: d.currentPlayerName }
                   : s,
+              ),
+            };
+          });
+          break;
+        }
+        case 'JUDGE_SUBMITTED': {
+          const d = event.data as JudgeSubmittedData;
+          this._currentPerformance.update(perf => {
+            if (!perf) return perf;
+            return {
+              ...perf,
+              judges: perf.judges.map(j =>
+                j.judgePlayerId === d.judgePlayerId ? { ...j, submitted: true } : j,
               ),
             };
           });

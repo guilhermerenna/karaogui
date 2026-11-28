@@ -216,23 +216,36 @@ class PerformanceLoopIntegrationTest {
                         """))
                 .andExpect(status().isNoContent());
 
-        // 10. Last judge submitted → PERFORMANCE_LOCKED
+        // 10. The judge's submission is broadcast first...
+        JsonNode judgeSubmittedEvent = performers.poll(5, TimeUnit.SECONDS);
+        assertThat(judgeSubmittedEvent).isNotNull();
+        assertThat(judgeSubmittedEvent.get("type").asText()).isEqualTo("JUDGE_SUBMITTED");
+        assertThat(judgeSubmittedEvent.get("data").get("judgePlayerId").asText()).isEqualTo(judgeId);
+
+        // 11. ...then, as the last judge, PERFORMANCE_LOCKED
         JsonNode lockedEvent = performers.poll(5, TimeUnit.SECONDS);
         assertThat(lockedEvent).isNotNull();
         assertThat(lockedEvent.get("type").asText()).isEqualTo("PERFORMANCE_LOCKED");
         assertThat(lockedEvent.get("data").get("scores")).isNotNull();
         assertThat(lockedEvent.get("data").get("scores").size()).isEqualTo(2); // Ana and Bob
 
-        // 11. RANKING_UPDATED fires (may come alongside PERFORMANCE_LOCKED)
+        // 12. RANKING_UPDATED fires (may come alongside PERFORMANCE_LOCKED)
         JsonNode rankingEvent = rankingEvents.poll(5, TimeUnit.SECONDS);
         assertThat(rankingEvent).isNotNull();
         assertThat(rankingEvent.get("type").asText()).isEqualTo("RANKING_UPDATED");
 
-        // 12. Verify scores > 0 for performers (avg of PITCH=8,ENERGY=7,STAGE_PRESENCE=9 = 8.0; points = round(8*10) = 80)
+        // 13. Verify scores > 0 for performers (avg of PITCH=8,ENERGY=7,STAGE_PRESENCE=9 = 8.0; points = round(8*10) = 80)
         JsonNode scores = lockedEvent.get("data").get("scores");
         for (JsonNode score : scores) {
             assertThat(score.get("points").asInt()).isGreaterThan(0);
         }
+
+        // 14. The snapshot exposes the judge roster with submitted=true after locking
+        mvc.perform(get("/api/games/" + gameId)
+                .header("Authorization", "Bearer " + hostToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.currentPerformance.judges[0].judgePlayerId").value(judgeId))
+                .andExpect(jsonPath("$.currentPerformance.judges[0].submitted").value(true));
 
         tvSession.disconnect();
     }

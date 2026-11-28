@@ -35,7 +35,7 @@ public record KaraoguiProperties(
 
     public record Timers(
             Duration readyConfirmWindow,
-            Duration replacementOpenAfter,
+            Duration volunteerWindow,
             Duration breakDuration) {}
 
     public record Scoreboard(

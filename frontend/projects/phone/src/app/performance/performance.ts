@@ -79,6 +79,7 @@ export class PerformanceComponent implements OnInit, OnDestroy {
   });
 
   secondsLeft = signal(0);
+  volunteerSecondsLeft = signal(0);
   overallScore = signal(5);
 
   evalScores: Record<string, number> = { PITCH: 5, ENERGY: 5, STAGE_PRESENCE: 5 };
@@ -110,11 +111,10 @@ export class PerformanceComponent implements OnInit, OnDestroy {
     return this.rt.judgeIds$().includes(this.session.playerId);
   });
 
-  readonly replacementOpen = computed(() => {
-    const perf = this.rt.currentPerformance$();
-    if (!perf?.replacementOpensAt) return false;
-    return Date.now() >= new Date(perf.replacementOpensAt).getTime();
-  });
+  // Driven by the ticking timer below (not a Date.now() computed): under zoneless change
+  // detection a non-performer's view consumes no time-based signal during CONFIRMING, so a
+  // computed on Date.now() would never re-evaluate and the volunteer panel would never appear.
+  replacementOpen = signal(false);
 
   readonly hasPendingSlots = computed(() => {
     const perf = this.rt.currentPerformance$();
@@ -177,10 +177,26 @@ export class PerformanceComponent implements OnInit, OnDestroy {
 
     this.timerHandle = setInterval(() => {
       const perf = this.rt.currentPerformance$();
+      // Confirm phase counts down to when the slot opens to volunteers (replacementOpensAt);
+      // the volunteer phase counts down to the final skip deadline (confirmDeadlineAt).
+      const confirmTarget = perf?.replacementOpensAt ?? perf?.confirmDeadlineAt ?? null;
+      if (confirmTarget) {
+        const ms = new Date(confirmTarget).getTime() - Date.now();
+        this.secondsLeft.set(Math.max(0, Math.ceil(ms / 1000)));
+      } else {
+        this.secondsLeft.set(0);
+      }
       if (perf?.confirmDeadlineAt) {
         const ms = new Date(perf.confirmDeadlineAt).getTime() - Date.now();
-        this.secondsLeft.set(Math.max(0, Math.ceil(ms / 1000)));
+        this.volunteerSecondsLeft.set(Math.max(0, Math.ceil(ms / 1000)));
+      } else {
+        this.volunteerSecondsLeft.set(0);
       }
+
+      this.replacementOpen.set(
+        !!perf && perf.state === 'CONFIRMING' && !!perf.replacementOpensAt
+          && Date.now() >= new Date(perf.replacementOpensAt).getTime(),
+      );
     }, 500);
   }
 

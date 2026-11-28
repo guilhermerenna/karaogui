@@ -12,7 +12,7 @@ public abstract sealed class GameDomainEvent extends ApplicationEvent
                 GameDomainEvent.PerformanceStarted, GameDomainEvent.PerformanceLocked,
                 GameDomainEvent.PerformanceSkipped, GameDomainEvent.RankingUpdated,
                 GameDomainEvent.CommentPosted, GameDomainEvent.CommentLiked,
-                GameDomainEvent.QueueUpdated {
+                GameDomainEvent.QueueUpdated, GameDomainEvent.JudgeSubmitted {
 
     protected GameDomainEvent(Object source) {
         super(source);
@@ -68,12 +68,17 @@ public abstract sealed class GameDomainEvent extends ApplicationEvent
         private final List<UUID> judgePlayerIds;
         private final UUID videoId;
         private final String youtubeUrl;
+        private final String songTitle;
+        private final String artist;
+        private final String videoName;
         private final java.time.Instant confirmDeadlineAt;
+        private final java.time.Instant replacementOpensAt;
 
         public PerformanceAnnounced(Object source, UUID gameId, long seq, Long performanceId,
                 String type, List<GameEvent.SlotInfo> slots, List<String> judgeNames,
                 List<UUID> judgePlayerIds, UUID videoId, String youtubeUrl,
-                java.time.Instant confirmDeadlineAt) {
+                String songTitle, String artist, String videoName,
+                java.time.Instant confirmDeadlineAt, java.time.Instant replacementOpensAt) {
             super(source);
             this.gameId = gameId;
             this.seq = seq;
@@ -84,7 +89,11 @@ public abstract sealed class GameDomainEvent extends ApplicationEvent
             this.judgePlayerIds = judgePlayerIds;
             this.videoId = videoId;
             this.youtubeUrl = youtubeUrl;
+            this.songTitle = songTitle;
+            this.artist = artist;
+            this.videoName = videoName;
             this.confirmDeadlineAt = confirmDeadlineAt;
+            this.replacementOpensAt = replacementOpensAt;
         }
 
         public UUID gameId() { return gameId; }
@@ -96,7 +105,11 @@ public abstract sealed class GameDomainEvent extends ApplicationEvent
         public List<UUID> judgePlayerIds() { return judgePlayerIds; }
         public UUID videoId() { return videoId; }
         public String youtubeUrl() { return youtubeUrl; }
+        public String songTitle() { return songTitle; }
+        public String artist() { return artist; }
+        public String videoName() { return videoName; }
         public java.time.Instant confirmDeadlineAt() { return confirmDeadlineAt; }
+        public java.time.Instant replacementOpensAt() { return replacementOpensAt; }
     }
 
     public static final class SlotStateChanged extends GameDomainEvent {
@@ -124,6 +137,30 @@ public abstract sealed class GameDomainEvent extends ApplicationEvent
         public UUID slotId() { return slotId; }
         public String slotState() { return slotState; }
         public String currentPlayerName() { return currentPlayerName; }
+    }
+
+    public static final class JudgeSubmitted extends GameDomainEvent {
+        private final UUID gameId;
+        private final long seq;
+        private final Long performanceId;
+        private final UUID judgePlayerId;
+        private final String displayName;
+
+        public JudgeSubmitted(Object source, UUID gameId, long seq, Long performanceId,
+                UUID judgePlayerId, String displayName) {
+            super(source);
+            this.gameId = gameId;
+            this.seq = seq;
+            this.performanceId = performanceId;
+            this.judgePlayerId = judgePlayerId;
+            this.displayName = displayName;
+        }
+
+        public UUID gameId() { return gameId; }
+        public long seq() { return seq; }
+        public Long performanceId() { return performanceId; }
+        public UUID judgePlayerId() { return judgePlayerId; }
+        public String displayName() { return displayName; }
     }
 
     public static final class PerformanceStarted extends GameDomainEvent {
